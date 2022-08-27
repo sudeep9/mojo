@@ -1,0 +1,12 @@
+target
+log
+log*
+*.log
+*.dylib
+.vscode
+*.db
+*.swp
+*-journal
+*-wal
+build
+Cargo.lock
