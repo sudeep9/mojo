@@ -46,7 +46,7 @@ The build expects the following in the environment:
 5. Optional: python3 for testing (most versions should be ok)
 
 ```
-git clone github.com/sudeep9/mojo
+git clone https://github.com/sudeep9/mojo.git
 cd mojo
 ./build.sh release
 ```
