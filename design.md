@@ -85,7 +85,7 @@ The filename (=F) is chosen by the fs.
 So for a given sqlite db 'a.db' being created for the first time the fs will create the following on disk:
 
 ```
-sudeep@local-3 mojo-rs % tree ./a.db 
+sudeep@local-3 mojo % tree ./a.db 
 ./a.db
 ├── a.db_d.1
 ├── a.db_i.1

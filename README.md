@@ -46,8 +46,8 @@ The build expects the following in the environment:
 5. Optional: python3 for testing (most versions should be ok)
 
 ```
-git clone github.com/sudeep9/mojo-rs
-cd mojo-rs
+git clone github.com/sudeep9/mojo
+cd mojo
 ./build.sh release
 ```
 
