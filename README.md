@@ -46,7 +46,7 @@ The build expects the following in the environment:
 5. Optional: python3 for testing (most versions should be ok)
 
 ```
-git clone https://github.com/sudeep9/mojo.git
+git clone github.com/sudeep9/mojo
 cd mojo
 ./build.sh release
 ```
@@ -188,8 +188,8 @@ I wanted to use sqlite [test harness](https://www.sqlite.org/th3.html) but it re
 
 > SQLite itself is in the public domain and can be used for any purpose. But TH3 is proprietary and requires a license.
 
-Instead I have `testdb.sql` for black box testing and `perftest.py` for perf tests.
-At present the `testdb.sql` tests combinations of the following:
+Instead there is `testdb.py` for black box testing and `perftest.py` for perf tests.
+At present the `testdb.py` tests combinations of the following:
 
 ```     
 page_sizes = [4096]
