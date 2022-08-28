@@ -76,6 +76,26 @@ But for versioned file, the mapping of between the tuple (Pg No, Version) => \<L
 
 This nicely yields itself to be stored in a key-value store.
 
+The actual data-structure used is `Vec<Option<Vec<Slot>>>`. The entire bucket/file is split into slots and the inner/nested vector (`Vec<Slot>`) is called slot map. Each slot corresponds to a page of sqlite. A slot is a tuple of (physical page number, version). There is a maximum number of slots controlled by a tunable called `pages per slot`. 
+ 
+The version 3 for the file in the above example is represented as below (with `pages per slot` = 2) 
+Assume page size=4KB.
+
+```
+Slot 0:
+  index 0 = (0,3)
+  index 1 = (1,2)
+Slot 1:
+  index 0 = (2,1)
+  index 1 = (2,3)
+Slot 2:
+  index 0 = (2,3)
+```
+
+The outer vector consists of 3 vectors, one each corresponding to one slot. The key (which is a page no) is converted to slot vector and index within each slot vector. So the writing and reading from from index is O(1).
+
+The value is a tuple (physical page no in a version file, version). Since for each version a separate file is created, the page number in the tuple is the physical page no and version in which the page was last modified/created.
+
 ## MojoFS
 
 Each sqlite database is created as a directory instead of a single file.
@@ -98,9 +118,15 @@ sudeep@local-3 mojo % tree ./a.db
 So the fs creates the dir = `a.db`. The sqlite issues open call for the main db file i.e. test.db. 
 The fs adds `_d` (d=data) to the name creates `a.db_d.1`. The `.1` is the version.
 
-The `a.db_i.1` is the index file, which is internal to the fs.
-
-The `mojo.*` files are files created/for the mojokv.
+The `a.db_i.1` is the index file, which is internal to the kv. This has the mapping of (page no, version) => Physical offset.
 
 When a version 2 is created it will create a file: `a.db_d.2`. This file will contain only those pages which were modified in that version. 
 As a result it will also create the index file `a.db_i.2`.
+
+The `mojo.*` files are files created/for the mojokv:
+
+`mojo.init` => Presence of this file indicates that filesystem was properly initialized.
+
+`mojo.state` => It stores the current state of the filesystem, like how many versions, current version, etc
+
+`mojo.bmap.1` => Bucket map. This stores namespace of the mojokv.
