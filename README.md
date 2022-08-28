@@ -15,6 +15,7 @@ The main feature of the fs is versioning/snapshotting. Only one version is writa
   - [Write to active version=2](#write-to-active-version2)
   - [Read old version=1](#read-old-version1)
   - [Read active version=2:](#read-active-version2)
+- [Docs](#docs)
 - [Limits](#limits)
 - [Testing](#testing)
 - [Performance](#performance)
@@ -167,6 +168,12 @@ Output:
 3
 4
 ```
+
+# Docs
+
+There is a design doc [here](https://github.com/sudeep9/mojo/blob/main/design.md)
+
+There is a user-guide [here](https://github.com/sudeep9/mojo/blob/main/user-guide.md)
 
 # Limits
 
