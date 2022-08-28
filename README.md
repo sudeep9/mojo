@@ -23,8 +23,7 @@ The main feature of the fs is versioning/snapshotting. Only one version is writa
 
 # License
 
-At present there is no license and to my knowledge it is very restrictive.
-This will change. I have not made up my mind on the exact license.
+I have changed it to MIT. See the LICENSE file.
 
 # Development status
 
