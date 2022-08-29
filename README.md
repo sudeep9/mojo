@@ -9,7 +9,7 @@ The main feature of the fs is versioning/snapshotting. Only one version is writa
 - [Development status](#development-status)
 - [Build](#build)
 - [Usage](#usage)
-  - [Create databse using mojo and insert few records](#create-databse-using-mojo-and-insert-few-records)
+  - [Create database using mojo and insert few records](#create-database-using-mojo-and-insert-few-records)
   - [Select data](#select-data)
   - [Commit the database](#commit-the-database)
   - [Write to active version=2](#write-to-active-version2)
@@ -31,7 +31,7 @@ I have changed it to MIT. See the LICENSE file.
 |Item|Value|
 |-------|------|
 |Quality|pre-alpha|
-|Maintainance|active|
+|Maintenance|active|
 
 # Build
 
@@ -60,7 +60,7 @@ Following artifacts will be in `build` dir:
 
 All the examples below uses sqlite3 binary. However, you can use any bindings of sqlite.
 
-## Create databse using mojo and insert few records
+## Create database using mojo and insert few records
 
 ```
 rm -fR a.db
@@ -294,7 +294,7 @@ It needs atleast the following:
 - [ ] Ability to delete versions
 - [ ] Ability to merge versions (not like git merge)
 - [ ] Ability to recover from corrupted fs.
-- [ ] Stablize on-disk format
+- [ ] Stabilize on-disk format
 - [ ] User guide
 
 A lot of the above needs to be clearly defined.
