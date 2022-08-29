@@ -23,7 +23,7 @@ The main feature of the fs is versioning/snapshotting. Only one version is writa
 
 # License
 
-I have changed it to MIT. See the LICENSE file.
+I have changed it to MIT. See the [LICENSE](/LICENSE) file.
 
 # Development status
 
