@@ -6,13 +6,10 @@ use nix::sys::stat::Mode;
 //use crate::value;
 use crate::Error;
 
-const BUFFER_MAGIC: &[u8] = b"mojo";
-const PAGE_HEADER_LEN: usize = 8;
-
 pub struct NixFile {
     file_fd: i32,
     curr_off: u64,
-    page_header_buf: [u8; PAGE_HEADER_LEN],
+    page_header_buf: [u8; crate::PAGE_HEADER_LEN],
     page_header: PageHeader,
 }
 
@@ -29,7 +26,7 @@ impl NixFile {
         Ok(NixFile {
             file_fd,
             curr_off,
-            page_header_buf: [0; PAGE_HEADER_LEN],
+            page_header_buf: [0; crate::PAGE_HEADER_LEN],
             page_header: PageHeader::new(), 
         })
     }
@@ -71,7 +68,7 @@ impl NixFile {
     }
 
     pub fn header_len() -> usize {
-        return PAGE_HEADER_LEN;
+        return crate::PAGE_HEADER_LEN;
     }
 
     fn read_all_at(&self, off: u64, buf: &mut [u8]) -> Result<usize, Error> {
@@ -108,12 +105,12 @@ struct PageHeader {
 impl PageHeader {
     fn new() -> PageHeader {
         PageHeader { 
-            magic: BUFFER_MAGIC,
+            magic: crate::BUFFER_MAGIC,
             block_no: 0,
         }
     }
 
-    pub fn encode(&mut self, buf: &mut [u8; PAGE_HEADER_LEN]) {
+    pub fn encode(&mut self, buf: &mut [u8; crate::PAGE_HEADER_LEN]) {
         let _ = &buf[..4].copy_from_slice(self.magic);
         let _ = &buf[4..8].copy_from_slice(&self.block_no.to_le_bytes());
         //let _ = &buf[12..13].copy_from_slice(&self.flags.to_le_bytes());

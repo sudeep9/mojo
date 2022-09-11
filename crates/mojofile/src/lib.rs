@@ -3,6 +3,10 @@ mod error;
 
 pub use error::Error;
 
+pub const BUFFER_MAGIC: &[u8] = b"mojo";
+pub const PAGE_HEADER_LEN: usize = 8;
+
+
 pub fn add(left: usize, right: usize) -> usize {
     left + right
 }
