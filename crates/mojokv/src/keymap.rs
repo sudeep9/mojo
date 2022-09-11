@@ -1,8 +1,8 @@
 
-use crate::Error;
-use crate::value::{Value, Slot, serialize_valuearr, deserialize_valuearr};
-use crate::utils;
+use crate::value::{Value, Slot};
+use serde::{Serialize, Deserialize};
 
+#[derive(Serialize, Deserialize)]
 pub struct KeyMap {
     pub slot_map: Vec<Slot>,
     pps: usize
@@ -65,6 +65,7 @@ impl KeyMap {
         }
     }
 
+    /*
     pub fn serialize<W: std::io::Write>(&self, w: &mut W) -> Result<(), Error> {
         w.write_all(&(self.pps as u32).to_le_bytes())?;
 
@@ -96,7 +97,6 @@ impl KeyMap {
         }
 
         Ok(kmap)
-
     }
-
+ */
 }

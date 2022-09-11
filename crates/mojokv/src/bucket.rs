@@ -1,14 +1,14 @@
 
 use std::path::{Path, PathBuf};
 use crate::{Error, file::MojoFile};
-use crate::index::Index;
+use crate::index::mem::MemIndex;
 use crate::value::Value;
 use crate::state::KVState;
 
 pub struct BucketInner {
     name: String,
     root_path: PathBuf,
-    index: Index,
+    index: MemIndex,
     file_page_sz: usize,
     fmap: FileMap,
     is_dirty: bool,
@@ -64,9 +64,9 @@ impl Bucket {
         rootpath.join(&format!("{}_i.{}", name, ver))
     }
 
-    pub fn get_key(&self, key: u32) -> Option<Value> {
+    pub fn get_key(&self, key: u32) -> Result<Option<Value>, Error> {
         //let inner = self.inner.read();
-        self.inner.index.get(key).map(|v| v.clone())
+        Ok(self.inner.index.get(key)?.map(|v| v.clone()))
     }
 
     pub fn max_key(&self) ->  isize {
@@ -110,7 +110,7 @@ impl Bucket {
         }
 
         let fmap = FileMap::init(root_path, name, state.min_ver(), state.active_ver())?;
-        let mut index = Self::load_index(root_path, name, ver)?;
+        let (_, _, mut index) = Self::load_index(root_path, name, ver)?;
         index.set_active_ver(state.active_ver());
 
         let file_page_sz = state.page_size() as usize + MojoFile::header_len();
@@ -131,22 +131,24 @@ impl Bucket {
         Ok(Bucket::with_inner(state, inner))
     }
 
-    pub fn load_index(root_path: &Path, name: &str, ver: u32) -> Result<Index, Error> {
+    pub fn load_index(root_path: &Path, name: &str, ver: u32) -> Result<(usize, usize, MemIndex), Error> {
         let index_path = Self::index_path(root_path, name, ver);
         if !index_path.exists() {
             return Err(Error::BucketNotAtVerErr(name.to_owned(), ver));
         }
 
-        let index = Index::deserialize_from_path(&index_path)?;
+        let index = MemIndex::deserialize_from_path(&index_path)?;
 
         Ok(index)
     }
 
-    pub fn load_index_header(root_path: &Path, name: &str, ver: u32) -> Result<(usize, usize, Index), Error> {
+    /*
+    pub fn load_index_header(root_path: &Path, name: &str, ver: u32) -> Result<(usize, IndexHeader), Error> {
         let index_path = Self::index_path(root_path, name, ver);
 
-        Index::deserialize_header_from_path(&index_path)
+        MemIndex::deserialize_header_from_path(&index_path)
     }
+    */
 
     pub fn new(root_path: &Path, name: &str, state: KVState) -> Result<Self, Error> {
         log::debug!("creating new bucket name={} at ver={}", name, state.active_ver());
@@ -158,7 +160,7 @@ impl Bucket {
         let mut inner = BucketInner {
             name: name.to_owned(),
             root_path: root_path.to_owned(),
-            index: Index::new(state.pps() as usize),
+            index: MemIndex::new(state.pps() as usize),
             file_page_sz: state.page_size() as usize + MojoFile::header_len(),
             fmap,
             is_dirty: false,
@@ -195,7 +197,7 @@ impl Bucket {
         let pages = new_sz/(self.state.page_size() as usize);
         //let real_sz = pages * self.file_page_sz;
 
-        self.inner.index.truncate(pages as u32);
+        self.inner.index.truncate(pages as u32)?;
         self.inner.is_modified = true;
         //TODO: Delete blocks from file
         //self.active_file().truncate(real_sz)?;
@@ -227,7 +229,7 @@ impl Bucket {
 
         log::debug!("store put aver={} key={}, buflen={}", self.state.active_ver(), key, buf.len());
 
-        let val_opt = self.get_value_opt(key).map(|v| v.clone());
+        let val_opt = self.get_value_opt(key)?.map(|v| v.clone());
 
         match val_opt {
             Some(val) => {
@@ -236,12 +238,12 @@ impl Bucket {
                 log::debug!("store put value exists value={:?}", val);
                 if val.get_ver() == self.state.active_ver() {
                     self.put_at(key, page_off, buf, &val)?;
-                    self.inner.index.put(key, val.get_off());
+                    self.inner.index.put(key, val.get_off())?;
                 }else{
                     let file = self.inner.active_file(self.state.active_ver());
                     let write_off = file.write_buf(key, page_off, buf)?;
                     let block_no = (write_off/(self.inner.file_page_sz as u64)) as u32;
-                    self.inner.index.put(key, block_no);
+                    self.inner.index.put(key, block_no)?;
                 }
                 self.inner.is_dirty = true;
                 self.inner.is_modified = true;
@@ -253,7 +255,7 @@ impl Bucket {
                 let write_off = file.write_buf(key, page_off, buf)?;
                 let block_no = (write_off/(self.inner.file_page_sz as u64)) as u32;
 
-                self.inner.index.put(key, block_no);
+                self.inner.index.put(key, block_no)?;
                 self.inner.is_dirty = true;
                 self.inner.is_modified = true;
                 log::debug!("store put value not present. value={:?}", block_no);
@@ -280,27 +282,27 @@ impl Bucket {
         Ok(n)
     }
 
-    fn get_value_opt(&self, key: u32) -> Option<Value> {
+    fn get_value_opt(&self, key: u32) -> Result<Option<Value>, Error> {
         //let inner = self.inner.read();
 
-        match self.inner.index.get(key) {
+        match self.inner.index.get(key)? {
             None => {
                 log::debug!("get_value_opt no slot key={}", key);
-                return None
+                return Ok(None)
             }
             Some(val) => {
                 if !val.is_allocated() {
                     log::debug!("get_value_opt allocated key={}", key);
-                    return None
+                    return Ok(None)
                 }else{
-                    return Some(val.clone())
+                    return Ok(Some(val.clone()))
                 }
             }
         }
     }
 
     fn get_value(&self, key: u32) -> Result<Value, Error> {
-        self.get_value_opt(key).ok_or(Error::KeyNotFoundErr(key))
+        self.get_value_opt(key)?.ok_or(Error::KeyNotFoundErr(key))
     }
 
     pub (crate) fn sync_no_commit_lock(&mut self) -> Result<(), Error> {

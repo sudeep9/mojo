@@ -5,11 +5,91 @@ use crate::bucket::Bucket;
 use crate::bmap::BucketMap;
 use fslock::LockFile;
 
+pub trait Store {
+    fn exists(&self, name: &str) -> bool;
+    fn open(&mut self, name: &str, mode: BucketOpenMode) -> Result<Bucket, Error>;
+    fn delete(&mut self, name: &str) -> Result<(), Error>;
+    fn commit(&mut self) -> Result<u32, Error>;
+    fn active_ver(&self) -> u32;
+
+}
+
 pub struct KVStore {
     root_path: PathBuf,
     state: KVState,
     is_write: bool,
     bmap: BucketMap,
+}
+
+impl Store for KVStore {
+    fn exists(&self, name: &str) -> bool {
+        self.bmap.exists(name)
+    }
+
+    fn open(&mut self, name: &str, mode: BucketOpenMode) -> Result<Bucket, Error> {
+        let (ver, mut b) = match self.bmap.get(name) {
+            Some(v) => {
+                log::debug!("Bucket name={} exists at ver={}", name, v);
+                let b = Bucket::load(&self.root_path, name, self.state.clone(), v)?;
+                let ver = if self.is_write && mode.is_write() {
+                    self.state.active_ver()
+                }else{
+                    v
+                };
+                (ver, b)
+            },
+            None => {
+                log::debug!("Bucket name={} does not exists", name);
+                if !self.is_write {
+                    return Err(Error::StoreNotWritableErr);
+                }
+                let b = Bucket::new(&self.root_path, name, self.state.clone())?;
+                (self.state.active_ver(), b)
+
+            }
+        };
+
+        if self.is_write && mode.is_write() {
+            b.set_writable();
+        }
+
+        self.bmap.add(name, ver);
+
+        if mode.is_write() {
+            self.sync_bmap()?;
+        }
+
+        Ok(b)
+    }
+
+    fn delete(&mut self, name: &str) -> Result<(), Error> {
+        self.bmap.delete(&self.root_path, name, self.state.active_ver())?;
+        self.sync_bmap()
+    }
+
+    fn commit(&mut self) -> Result<u32, Error> {
+        log::debug!("committing store ver={}", self.state.active_ver());
+
+        let _ = self.state.commit_lock.write();
+
+        log::debug!("about to acquire commit file lock ver={}", self.state.active_ver());
+        let mut commit_lock_file = Self::create_lock_file(&self.root_path)?;
+
+        if !commit_lock_file.try_lock_with_pid()? {
+            return Err(Error::CommitLockedErr);
+        }
+
+        let new_ver = self.state.advance_ver();
+        self.sync_state()?;
+        self.sync_bmap()?;
+
+        log::debug!("committing store done");
+        Ok(new_ver)
+    }
+
+    fn active_ver(&self) -> u32 {
+        self.state.active_ver()
+    }
 }
 
 impl KVStore {
@@ -53,51 +133,6 @@ impl KVStore {
         store.is_write = true;
                
         Ok(store)
-    }
-
-    pub fn exists(&self, name: &str) -> bool {
-        self.bmap.exists(name)
-    }
-
-    pub fn open_bucket(&mut self, name: &str, mode: BucketOpenMode) -> Result<Bucket, Error> {
-        let (ver, mut b) = match self.bmap.get(name) {
-            Some(v) => {
-                log::debug!("Bucket name={} exists at ver={}", name, v);
-                let b = Bucket::load(&self.root_path, name, self.state.clone(), v)?;
-                let ver = if self.is_write && mode.is_write() {
-                    self.state.active_ver()
-                }else{
-                    v
-                };
-                (ver, b)
-            },
-            None => {
-                log::debug!("Bucket name={} does not exists", name);
-                if !self.is_write {
-                    return Err(Error::StoreNotWritableErr);
-                }
-                let b = Bucket::new(&self.root_path, name, self.state.clone())?;
-                (self.state.active_ver(), b)
-
-            }
-        };
-
-        if self.is_write && mode.is_write() {
-            b.set_writable();
-        }
-
-        self.bmap.add(name, ver);
-
-        if mode.is_write() {
-            self.sync_bmap()?;
-        }
-
-        Ok(b)
-    }
-
-    pub fn delete(&mut self, name: &str) -> Result<(), Error> {
-        self.bmap.delete(&self.root_path, name, self.state.active_ver())?;
-        self.sync_bmap()
     }
 
     fn load_store(root_path: &Path, state: KVState, ver: u32) -> Result<KVStore, Error> {
@@ -163,34 +198,10 @@ impl KVStore {
         Ok(())
     }
 
-    pub fn commit(&mut self) -> Result<u32, Error> {
-        log::debug!("committing store ver={}", self.state.active_ver());
-
-        let _ = self.state.commit_lock.write();
-
-        log::debug!("about to acquire commit file lock ver={}", self.state.active_ver());
-        let mut commit_lock_file = Self::create_lock_file(&self.root_path)?;
-
-        if !commit_lock_file.try_lock_with_pid()? {
-            return Err(Error::CommitLockedErr);
-        }
-
-        let new_ver = self.state.advance_ver();
-        self.sync_state()?;
-        self.sync_bmap()?;
-
-        log::debug!("committing store done");
-        Ok(new_ver)
-    }
-
     fn create_lock_file(root_path: &Path) -> Result<LockFile, Error> {
         let lock_path = root_path.join("mojo.lock");
         log::debug!("creating lock file: {:?}", lock_path);
         Ok(LockFile::open(&lock_path)?)
-    }
-
-    pub fn active_ver(&self) -> u32 {
-        self.state.active_ver()
     }
 }
 

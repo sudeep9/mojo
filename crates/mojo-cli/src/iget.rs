@@ -1,12 +1,12 @@
 use anyhow::Error;
-use mojokv::{KVStore,BucketOpenMode};
+use mojokv::{KVStore,BucketOpenMode, Store};
 
 pub fn cmd(kvpath: &std::path::Path, bucket: &str, ver: u32, key: u32) -> Result<(), Error> {
     let mut st = KVStore::readonly(&kvpath, ver)?;
-    let b = st.open_bucket(bucket, BucketOpenMode::Read)?;
+    let b = st.open(bucket, BucketOpenMode::Read)?;
 
     println!("Max key: {}", b.max_key());
-    match b.get_key(key) {
+    match b.get_key(key)? {
         Some(val) => {
             println!("value: {:?}", val);
         },

@@ -5,7 +5,7 @@ use crate::open_options::*;
 use std::collections::HashMap;
 use crate::kvfile::{KVFile, KVFileOpt};
 use crate::vfsfile::FileImpl;
-use mojokv::{KVStore, BucketOpenMode};
+use mojokv::{Store, KVStore, BucketOpenMode};
 
 use crate::vfsfile::VFSFile;
 
@@ -69,7 +69,7 @@ impl VFS {
             BucketOpenMode::Write
         };
 
-        let b = store.open_bucket(bucket_name, bmode)?;
+        let b = store.open(bucket_name, bmode)?;
         let kvfileopt = self.fopt.to_kvfile_opt();
 
         let f = KVFile::open(b, kvfileopt)?;

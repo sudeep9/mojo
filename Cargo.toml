@@ -2,6 +2,7 @@
 
 
 members = [
-    "mojofs",
-    "mojokv",
+    "crates/mojofs",
+    "crates/mojokv",
+    "crates/mojo-cli",
 ]

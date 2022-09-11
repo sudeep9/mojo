@@ -16,6 +16,7 @@ The main feature of the fs is versioning/snapshotting. Only one version is writa
   - [Read old version=1](#read-old-version1)
   - [Read active version=2:](#read-active-version2)
 - [Docs](#docs)
+    - [Source map](#source-map)
 - [Limits](#limits)
 - [Testing](#testing)
 - [Performance](#performance)
@@ -170,9 +171,17 @@ Output:
 
 # Docs
 
-There is a design doc [here](https://github.com/sudeep9/mojo/blob/main/design.md)
+* design doc => [here](https://github.com/sudeep9/mojo/blob/main/docs/design.md)
+* user-guide => [here](https://github.com/sudeep9/mojo/blob/main/docs/user-guide.md)
 
-There is a user-guide [here](https://github.com/sudeep9/mojo/blob/main/user-guide.md)
+### Source map
+
+* All the rust code is under `crates` folder
+* All the docs are under `docs` folder
+* The `sqlite-ext` folder has C code which is compiled down to shared lib
+* The `test-scripts` has various assorted test scripts which includes perf & black-box test
+
+Crate wise details are at: [here](https://github.com/sudeep9/mojo/blob/main/docs/source.md)
 
 # Limits
 

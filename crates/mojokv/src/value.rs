@@ -1,7 +1,7 @@
 
-use crate::Error;
-
 use modular_bitfield::{bitfield, specifiers::*};
+use serde::{Serialize, Deserialize};
+use serde::de::Visitor;
 
 pub type Slot = Option<Vec<Value>>;
 
@@ -44,6 +44,7 @@ impl Value {
         self.ver() as u32
     }
 
+    /* 
     pub fn serialize<W: std::io::Write>(&self, w: &mut W) -> Result<(), Error> {
         let buf = self.into_bytes();
         w.write_all(&buf)?;
@@ -55,8 +56,48 @@ impl Value {
         r.read_exact(&mut buf)?;
         Ok(Value::from_bytes(buf))
     }
+    */
 }
 
+impl Serialize for Value {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer {
+        serializer.serialize_bytes(&self.into_bytes())
+    }
+}
+
+struct ValueVisitor {}
+
+impl<'de> Visitor<'de> for ValueVisitor {
+    type Value = Value;
+
+    fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error, {
+
+        if v.len() != 7 {
+            return Err(serde::de::Error::invalid_length(v.len(), &self));
+        }
+        
+        Ok(Value::from_bytes([v[0], v[1], v[2], v[3], v[4], v[5], v[6]]))
+    }
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("byte array of 7 bytes")
+    }
+
+}
+
+impl<'de> Deserialize<'de> for Value {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: serde::Deserializer<'de> {
+        deserializer.deserialize_bytes(ValueVisitor{})
+    }
+}
+
+/*
 
 pub fn serialize_valuearr<W: std::io::Write>(val_opt: &Option<Vec<Value>>, w: &mut W) -> Result<(), Error> {
     match val_opt {
@@ -65,7 +106,7 @@ pub fn serialize_valuearr<W: std::io::Write>(val_opt: &Option<Vec<Value>>, w: &m
             w.write_all(&n_items.to_le_bytes())?;
 
             for elem in val.iter() {
-                elem.serialize(w)?;
+                rmp_serde::encode::write(w, elem)?;
             }
         },
         None => {
@@ -90,7 +131,7 @@ pub fn deserialize_valuearr<R: std::io::Read>(r: &mut R, pps: usize) -> Result<O
         }
         let mut tmp_vec = Vec::new();
         for _ in 0..count {
-            let val = Value::deserialize(r)?;
+            let val = rmp_serde::decode::from_read(r)?;
             tmp_vec.push(val);
         }
 
@@ -98,3 +139,4 @@ pub fn deserialize_valuearr<R: std::io::Read>(r: &mut R, pps: usize) -> Result<O
     }
 
 }
+*/

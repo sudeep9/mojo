@@ -96,7 +96,7 @@ impl KVState {
     }
 
     pub fn serialize_to_path(&self, filepath: &std::path::Path) -> Result<(), Error> {
-        let buf = bincode::serialize(&self)?;
+        let buf = rmp_serde::to_vec_named(&self)?;
 
         utils::write_file(filepath, &buf)?;
 
@@ -107,7 +107,7 @@ impl KVState {
         let mut buf = Vec::new();
         utils::load_file(filepath, &mut buf)?;
 
-        let state = bincode::deserialize(&buf)?;
+        let state = rmp_serde::from_slice(&buf)?;
         Ok(state)
     }
 }

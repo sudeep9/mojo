@@ -10,11 +10,10 @@ endif
 mojofs_lib = compiler.find_library('mojofs',
     dirs: [mojokv_lib_path])
 
-mojofs_inc_dir = include_directories('mojofs')
-mojofs_dep = declare_dependency(dependencies: [mojofs_lib],
-    include_directories: [mojofs_inc_dir])
+mojofs_dep = declare_dependency(dependencies: [mojofs_lib])
 
 shared_library('mojo',
-    sources: ['mojo.c'],
+    sources: ['sqlite-ext/mojo.c'],
+    include_directories: ['sqlite-ext'],
     dependencies: [mojofs_dep])
 

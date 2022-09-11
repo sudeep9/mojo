@@ -31,8 +31,11 @@ pub enum Error {
     #[error("Json serialization error")]
     SerdeJsonErr(#[from] serde_json::Error),
 
-    #[error("Bincode serialization error")]
-    SerdeBincodeErr(#[from] Box<bincode::ErrorKind>),
+    #[error("rmp encode error")]
+    RmpEncodeErr(#[from] rmp_serde::encode::Error),
+
+    #[error("rmp decode error")]
+    RmpDecodeErr(#[from] rmp_serde::decode::Error),
 
     #[error("Key {0} not found")]
     KeyNotFoundErr(u32),

@@ -30,6 +30,7 @@ pub fn touch_file(path: &Path) -> Result<(), Error> {
     Ok(())
 }
 
+/*
 pub fn read_le_u32<R: std::io::Read>(r: &mut R) -> Result<u32, Error> {
     let mut buf = [0u8; 4];
     r.read_exact(&mut buf)?;
@@ -47,3 +48,4 @@ pub fn read_le_usize<R: std::io::Read>(r: &mut R) -> Result<usize, Error> {
     r.read_exact(&mut buf)?;
     Ok(usize::from_le_bytes(buf))
 }
+*/

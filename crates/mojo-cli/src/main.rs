@@ -22,7 +22,7 @@ struct Cli {
 enum Commands {
     /// View index value for a key
     #[clap(name="iget")]
-    IndexGet{
+    MemIndexGet{
         #[clap(value_parser)]
         bucket: String,
 
@@ -34,7 +34,7 @@ enum Commands {
     },
     /// View index value for a key
     #[clap(name="iview")]
-    IndexView{
+    MemIndexView{
         #[clap(value_parser)]
         bucket: String,
 
@@ -69,16 +69,17 @@ enum Commands {
 }
 
 fn main() -> Result<(), Error> {
+    env_logger::init();
     let cli = Cli::parse();
 
     // You can check for the existence of subcommands, and if found use their
     // matches just as you would the top level cmd
 
     match &cli.command {
-        Commands::IndexGet{bucket, ver, key}  => {
+        Commands::MemIndexGet{bucket, ver, key}  => {
             iget::cmd(&cli.kvpath, bucket.as_str(), *ver, *key)?;
         },
-        Commands::IndexView{bucket, ver, additional, keys}  => {
+        Commands::MemIndexView{bucket, ver, additional, keys}  => {
             iview::cmd(&cli.kvpath, bucket.as_str(), *ver, *additional, *keys)?;
         },
         Commands::State{additional} => {

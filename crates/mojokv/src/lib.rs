@@ -1,6 +1,6 @@
 //#![feature(write_all_vectored)]
 
-mod index;
+pub mod index;
 mod bucket;
 mod error;
 mod file;
@@ -14,10 +14,9 @@ mod bmap;
 pub use error::Error;
 pub use bucket::Bucket;
 pub use bmap::BucketMap;
-pub use index::*;
 pub use keymap::KeyMap;
 pub use value::{Value, Slot};
-pub use store::{KVStore, BucketOpenMode};
+pub use store::{Store, KVStore, BucketOpenMode};
 
 
 //TODO: Pass pps from single place

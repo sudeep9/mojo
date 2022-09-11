@@ -15,7 +15,7 @@ pub fn cmd(kvpath: &std::path::Path, additional: bool) -> Result<(), Error> {
     if additional {
         println!("----------------------------");
         println!("Size of KVStore : {} bytes", size_of::<KVStore>());
-        println!("Size of Index   : {} bytes", size_of::<mojokv::Index>());
+        println!("Size of MemIndex   : {} bytes", size_of::<mojokv::index::mem::MemIndex>());
         println!("Size of KeyMap  : {} bytes", size_of::<mojokv::KeyMap>());
         println!("Size of Value   : {} bytes", size_of::<mojokv::Value>());
         println!("Size of Slot    : {} bytes", size_of::<mojokv::Slot>());
