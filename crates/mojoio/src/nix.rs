@@ -85,7 +85,7 @@ impl NixFile {
     }
 
     pub fn read_buf_at(&self, off: u64, buf: &mut [u8]) -> Result<usize, Error> {
-        log::debug!("file read at off={} {}", off, buf.len());
+        log::debug!("file read at fd={} off={} {}", self.file_fd, off, buf.len());
         let n = self.read_all_at(off, buf)?;
         Ok(n)
     }

@@ -1,6 +1,6 @@
 
 use crate::Error;
-use mojofile::nix::NixFile;
+use mojoio::nix::NixFile;
 use crate::utils;
 use std::sync::Arc;
 use parking_lot::RwLock;

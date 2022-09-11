@@ -18,6 +18,10 @@ impl KVStore {
     }
 
     pub fn open(&mut self, name: &str, mode: BucketOpenMode) -> Result<Bucket, Error> {
+        log::debug!("store bucket open name={} mode writable={} store is write: {}", name, mode.is_write(), self.is_write);
+
+        let mut new_bucket = false;
+
         let (ver, mut b) = match self.bmap.get(name) {
             Some(v) => {
                 log::debug!("Bucket name={} exists at ver={}", name, v);
@@ -35,16 +39,20 @@ impl KVStore {
                     return Err(Error::StoreNotWritableErr);
                 }
                 let b = Bucket::new(&self.root_path, name, self.state.clone())?;
+                new_bucket = true;
                 (self.state.active_ver(), b)
 
             }
         };
 
         if self.is_write && mode.is_write() {
+            log::debug!("setting bucket={} to writable", name);
             b.set_writable();
+            if new_bucket {
+                self.bmap.add(name, ver);
+                b.sync()?;
+            }
         }
-
-        self.bmap.add(name, ver);
 
         if mode.is_write() {
             self.sync_bmap()?;

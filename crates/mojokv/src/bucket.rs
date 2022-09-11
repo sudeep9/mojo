@@ -1,7 +1,7 @@
 
 use std::path::{Path, PathBuf};
 use crate::Error;
-use mojofile::nix::NixFile;
+use mojoio::nix::NixFile;
 use crate::index::mem::MemIndex;
 use crate::value::Value;
 use crate::state::KVState;
@@ -91,8 +91,8 @@ impl Bucket {
             Self::load(root_path, name, state, aver)?
         }else{
             log::debug!("creating new bucket at ver={}", aver);
-            let b = Self::new(root_path, name, state)?;
-            //b.inner.sync_index(aver)?;
+            let mut b = Self::new(root_path, name, state)?;
+            b.sync()?;
             b
         };
 
@@ -134,6 +134,8 @@ impl Bucket {
 
     pub fn load_index(root_path: &Path, name: &str, ver: u32) -> Result<(usize, usize, MemIndex), Error> {
         let index_path = Self::index_path(root_path, name, ver);
+
+        log::debug!("loading index={:?} for name={} at ver={}", index_path, name, ver);
         if !index_path.exists() {
             return Err(Error::BucketNotAtVerErr(name.to_owned(), ver));
         }
@@ -171,7 +173,8 @@ impl Bucket {
         };
 
         inner.index.set_active_ver(state.active_ver());
-        Ok(Bucket::with_inner(state, inner))
+        let b = Bucket::with_inner(state, inner);
+        Ok(b)
     }
 
     pub fn logical_size(&self) -> u64 {
@@ -313,7 +316,7 @@ impl Bucket {
 
         //let mut inner = self.inner.write();
 
-        log::debug!("syncing bucket={} at ver={} done", self.inner.name, self.state.active_ver());
+        log::debug!("syncing bucket={} at ver={}", self.inner.name, self.state.active_ver());
 
         self.inner.active_file(self.state.active_ver()).sync()?;
         self.inner.sync_index(self.state.active_ver())?;

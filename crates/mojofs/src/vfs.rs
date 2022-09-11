@@ -36,14 +36,16 @@ impl VFS {
     }
 
     pub fn init(&mut self, root_path: &str, params: &HashMap<String, String>, opt: OpenOptions) -> Result<(), Error> {
-        log::debug!("init: root_path={} params={:?}", root_path, params);
+        log::debug!("init: root_path={} params={:?} opt={:?}", root_path, params, opt);
 
         self.fopt = FSOptions::parse(params)?;
         let root_path = Path::new(root_path);
         if opt.access == OpenAccess::Read {
             self.store = Some(KVStore::readonly(root_path, self.fopt.ver)?);
+            log::debug!("store opened in readonly mode");
         }else{
             self.store = Some(KVStore::writable(root_path, true, Some(self.fopt.pagesz), Some(self.fopt.pps))?);
+            log::debug!("store opened writable mode");
         }
 
         Ok(())
@@ -119,6 +121,7 @@ impl VFS {
     }
 
     pub fn close(&mut self, f: VFSFile) -> Result<(), Error> {
+        let fid = f.id();
         log::debug!("close id={}", f.id());
 
         let bucket_name = f.bucket.clone();
@@ -128,6 +131,7 @@ impl VFS {
 
         let store = self.store.as_mut().unwrap();
         if opt.delete_on_close {
+            log::debug!("close_on_delete is set for id={}", fid);
             store.delete(bucket_name.as_str())?;
         }
 

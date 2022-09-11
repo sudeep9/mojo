@@ -23,7 +23,7 @@ This is the KV which powers the mojofs.
 * `keymap.rs` The index is split into slots and a vector such slots are wrapped in KeyMap. 
 * `state.rs` has the state object which reflects the current state of the kv
 
-### mojofile
+### mojoio
 
 Abstracts out the notion of file. This is the code which does the actual IO. It will have different implementations including remote KV store.
 

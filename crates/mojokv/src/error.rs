@@ -5,7 +5,7 @@ pub enum Error {
     IoErr(#[from] std::io::Error),
 
     #[error("mojo file error")]
-    MojoFileErr(#[from] mojofile::Error),
+    MojoFileErr(#[from] mojoio::Error),
 
     #[error("Bucket {0} not found at ver={1}")]
     BucketNotAtVerErr(String, u32),

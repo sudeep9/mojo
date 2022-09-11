@@ -10,3 +10,5 @@ log*
 *-wal
 build
 Cargo.lock
+testdbs
+__pycache__
