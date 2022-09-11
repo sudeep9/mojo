@@ -5,7 +5,7 @@ use crate::open_options::*;
 use std::collections::HashMap;
 use crate::kvfile::{KVFile, KVFileOpt};
 use crate::vfsfile::FileImpl;
-use mojokv::{Store, KVStore, BucketOpenMode};
+use mojokv::{KVStore, BucketOpenMode};
 
 use crate::vfsfile::VFSFile;
 

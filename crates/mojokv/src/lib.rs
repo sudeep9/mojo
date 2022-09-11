@@ -16,7 +16,7 @@ pub use bucket::Bucket;
 pub use bmap::BucketMap;
 pub use keymap::KeyMap;
 pub use value::{Value, Slot};
-pub use store::{Store, KVStore, BucketOpenMode};
+pub use store::{KVStore, BucketOpenMode};
 
 
 //TODO: Pass pps from single place

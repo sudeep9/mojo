@@ -1,5 +1,5 @@
 use anyhow::Error;
-use mojokv::{KVStore, Store};
+use mojokv::KVStore;
 
 pub fn cmd(kvpath: &std::path::Path) -> Result<(), Error> {
     let mut st = KVStore::writable(&kvpath, false, None, None)?;

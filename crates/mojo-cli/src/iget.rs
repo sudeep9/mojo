@@ -1,5 +1,5 @@
 use anyhow::Error;
-use mojokv::{KVStore,BucketOpenMode, Store};
+use mojokv::{KVStore,BucketOpenMode};
 
 pub fn cmd(kvpath: &std::path::Path, bucket: &str, ver: u32, key: u32) -> Result<(), Error> {
     let mut st = KVStore::readonly(&kvpath, ver)?;

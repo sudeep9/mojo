@@ -5,15 +5,6 @@ use crate::bucket::Bucket;
 use crate::bmap::BucketMap;
 use fslock::LockFile;
 
-pub trait Store {
-    fn exists(&self, name: &str) -> bool;
-    fn open(&mut self, name: &str, mode: BucketOpenMode) -> Result<Bucket, Error>;
-    fn delete(&mut self, name: &str) -> Result<(), Error>;
-    fn commit(&mut self) -> Result<u32, Error>;
-    fn active_ver(&self) -> u32;
-
-}
-
 pub struct KVStore {
     root_path: PathBuf,
     state: KVState,
@@ -21,12 +12,12 @@ pub struct KVStore {
     bmap: BucketMap,
 }
 
-impl Store for KVStore {
-    fn exists(&self, name: &str) -> bool {
+impl KVStore {
+    pub fn exists(&self, name: &str) -> bool {
         self.bmap.exists(name)
     }
 
-    fn open(&mut self, name: &str, mode: BucketOpenMode) -> Result<Bucket, Error> {
+    pub fn open(&mut self, name: &str, mode: BucketOpenMode) -> Result<Bucket, Error> {
         let (ver, mut b) = match self.bmap.get(name) {
             Some(v) => {
                 log::debug!("Bucket name={} exists at ver={}", name, v);
@@ -62,12 +53,12 @@ impl Store for KVStore {
         Ok(b)
     }
 
-    fn delete(&mut self, name: &str) -> Result<(), Error> {
+    pub fn delete(&mut self, name: &str) -> Result<(), Error> {
         self.bmap.delete(&self.root_path, name, self.state.active_ver())?;
         self.sync_bmap()
     }
 
-    fn commit(&mut self) -> Result<u32, Error> {
+    pub fn commit(&mut self) -> Result<u32, Error> {
         log::debug!("committing store ver={}", self.state.active_ver());
 
         let _ = self.state.commit_lock.write();
@@ -87,12 +78,10 @@ impl Store for KVStore {
         Ok(new_ver)
     }
 
-    fn active_ver(&self) -> u32 {
+    pub fn active_ver(&self) -> u32 {
         self.state.active_ver()
     }
-}
 
-impl KVStore {
     pub fn load_state(rootpath: &Path) -> Result<KVState, Error> {
         let state_path = rootpath.join("mojo.state");
         log::debug!("loading state from {:?}", state_path);
