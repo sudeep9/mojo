@@ -4,6 +4,9 @@ pub enum Error {
     #[error("io error")]
     IoErr(#[from] std::io::Error),
 
+    #[error("mojo file error")]
+    MojoFileErr(#[from] mojofile::Error),
+
     #[error("Bucket {0} not found at ver={1}")]
     BucketNotAtVerErr(String, u32),
 
@@ -45,9 +48,6 @@ pub enum Error {
 
     #[error("Version {0} not found")]
     VersionNotFoundErr(u32),
-
-    #[error("Unix error")]
-    NixErr(#[from] nix::Error),
 
     #[error("Parse int error")]
     ParseIntErr(#[from] std::num::ParseIntError),

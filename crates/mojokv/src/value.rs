@@ -44,19 +44,6 @@ impl Value {
         self.ver() as u32
     }
 
-    /* 
-    pub fn serialize<W: std::io::Write>(&self, w: &mut W) -> Result<(), Error> {
-        let buf = self.into_bytes();
-        w.write_all(&buf)?;
-        Ok(())
-    }
-
-    pub fn deserialize<R: std::io::Read>(r: &mut R) -> Result<Value, Error> {
-        let mut buf = [0; std::mem::size_of::<Self>()];
-        r.read_exact(&mut buf)?;
-        Ok(Value::from_bytes(buf))
-    }
-    */
 }
 
 impl Serialize for Value {

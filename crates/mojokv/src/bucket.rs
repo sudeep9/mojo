@@ -1,6 +1,7 @@
 
 use std::path::{Path, PathBuf};
-use crate::{Error, file::MojoFile};
+use crate::Error;
+use mojofile::nix::NixFile;
 use crate::index::mem::MemIndex;
 use crate::value::Value;
 use crate::state::KVState;
@@ -18,7 +19,7 @@ pub struct BucketInner {
 }
 
 impl BucketInner {
-    fn active_file(&mut self, ver: u32) -> &mut MojoFile {
+    fn active_file(&mut self, ver: u32) -> &mut NixFile {
         self.fmap.file_mut(ver)
     }
 
@@ -113,7 +114,7 @@ impl Bucket {
         let (_, _, mut index) = Self::load_index(root_path, name, ver)?;
         index.set_active_ver(state.active_ver());
 
-        let file_page_sz = state.page_size() as usize + MojoFile::header_len();
+        let file_page_sz = state.page_size() as usize + NixFile::header_len();
 
         let inner = BucketInner {
             name: name.to_owned(),
@@ -161,7 +162,7 @@ impl Bucket {
             name: name.to_owned(),
             root_path: root_path.to_owned(),
             index: MemIndex::new(state.pps() as usize),
-            file_page_sz: state.page_size() as usize + MojoFile::header_len(),
+            file_page_sz: state.page_size() as usize + NixFile::header_len(),
             fmap,
             is_dirty: false,
             is_modified: false,
@@ -271,7 +272,7 @@ impl Bucket {
         let value = self.get_value(key)?;
 
         let mut read_off = (value.get_off() as u64) * (self.inner.file_page_sz as u64);
-        read_off += MojoFile::header_len() as u64 + page_off;
+        read_off += NixFile::header_len() as u64 + page_off;
         let read_ver = value.get_ver();
 
         log::debug!("get name={} key={} value: {:?}", self.inner.name, key, value);
@@ -346,7 +347,7 @@ impl Bucket {
 
 
 struct FileMap {
-    fmap: Vec<MojoFile>,
+    fmap: Vec<NixFile>,
     min_ver: u32,
 }
 
@@ -379,18 +380,18 @@ impl FileMap {
         let ver_path = Self::data_path(root_path, name, ver);
         log::debug!("adding new file: {:?}", ver_path);
 
-        let f = MojoFile::open(&ver_path, ver)?;
+        let f = NixFile::open(&ver_path, ver)?;
 
         self.fmap.push(f);
         Ok(())
     }
 
-    fn file_mut(&mut self, ver: u32) -> &mut MojoFile {
+    fn file_mut(&mut self, ver: u32) -> &mut NixFile {
         let i = ver - self.min_ver;
         &mut self.fmap[i as usize]
     }
 
-    fn file(&self, ver: u32) -> &MojoFile {
+    fn file(&self, ver: u32) -> &NixFile {
         let i = ver - self.min_ver;
         &self.fmap[i as usize]
     }

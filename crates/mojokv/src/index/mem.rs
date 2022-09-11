@@ -75,73 +75,6 @@ impl MemIndex {
         Box::new(itr)
     }
 
-    /*
-    pub fn serialize<W: std::io::Write>(&self, w: &mut W) -> Result<(), Error> {
-        w.write_all(self.header.magic.as_bytes())?;
-
-        w.write_all(&self.header.format_ver.to_le_bytes())?;
-        w.write_all(&self.header.min_ver.to_le_bytes())?;
-        w.write_all(&self.header.active_ver.to_le_bytes())?;
-        w.write_all(&(self.header.pps as u32).to_le_bytes())?;
-        w.write_all(&self.header.max_key.to_le_bytes())?;
-
-        let mut tmp_buf = Vec::new();
-        self.kmap.serialize(&mut tmp_buf)?;
-
-        w.write_all(&tmp_buf.len().to_le_bytes())?;
-        let cbuf = zstd::bulk::compress(&tmp_buf, 4)?;
-
-        w.write_all(&cbuf.len().to_le_bytes())?;
-        w.write_all(&cbuf)?;
-
-        Ok(())
-    }
-
-    pub fn deserialize_header<R: std::io::Read>(r: &mut R) -> Result<(usize, usize, IndexHeader), Error> {
-        let mut magic_buf = [0; 10];
-        r.read_exact(&mut magic_buf)?;
-        if magic_buf != super::MOJO_INDEX_MAGIC.as_bytes() {
-            return Err(Error::UnknownStr(format!("Invalid mojo index magic {:?}", magic_buf)));
-        }
-
-        let format_ver = utils::read_le_u32(r)?;
-        if format_ver != 1 {
-            return Err(Error::UnknownStr(format!("Invalid mojo index format version {:?}", format_ver)));
-        }
-
-        let min_ver = utils::read_le_u32(r)?;
-        let active_ver = utils::read_le_u32(r)?;
-        let pps = utils::read_le_u32(r)?;
-        let max_key = utils::read_le_isize(r)?;
-
-        let uncompressed_size = utils::read_le_usize(r)?;
-        let compressed_size = utils::read_le_usize(r)?;
-
-        let header = IndexHeader {
-            magic: super::MOJO_INDEX_MAGIC,
-            format_ver,
-            min_ver,
-            active_ver,
-            max_key,
-            pps: pps as usize,
-        };
-
-        Ok((compressed_size, uncompressed_size, header))
-    }
-
-    pub fn deserialize<R: std::io::Read>(r: &mut R) -> Result<MemIndex, Error> {
-        let (comp_sz, uncomp_sz, header) = Self::deserialize_header(r)?;
-
-        let mut buf = vec![0u8; comp_sz];
-
-        r.read_exact(buf.as_mut_slice())?;
-        let uncomp_buf = zstd::bulk::decompress(&buf, uncomp_sz)?;
-
-        let kmap = KeyMap::deserialize(&mut std::io::Cursor::new(uncomp_buf))?;
-
-        Ok(MemIndex{kmap, header})
-    }*/
-
     pub fn serialize_to_path(&self, filepath: &std::path::Path) -> Result<(), Error> {
         let tmp_buf = rmp_serde::to_vec(&self)?;
         let cbuf = zstd::bulk::compress(&tmp_buf, 3)?;
@@ -156,7 +89,6 @@ impl MemIndex {
         f.write_all(&cap_buf)?;
         f.write_all(&cbuf)?;
         f.sync_data()?;
-        //utils::write_file(filepath, &cbuf)?;
 
         Ok(())    
     }

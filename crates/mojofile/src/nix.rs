@@ -9,14 +9,14 @@ use crate::Error;
 const BUFFER_MAGIC: &[u8] = b"mojo";
 const PAGE_HEADER_LEN: usize = 8;
 
-pub struct MojoFile {
+pub struct NixFile {
     file_fd: i32,
     curr_off: u64,
     page_header_buf: [u8; PAGE_HEADER_LEN],
     page_header: PageHeader,
 }
 
-impl MojoFile {
+impl NixFile {
     pub fn open(filepath: &Path, _file_no: u32) -> Result<Self, Error> {
         let open_flags = OFlag::O_CREAT|OFlag::O_RDWR;
         let file_perm = Mode::all();
@@ -26,7 +26,7 @@ impl MojoFile {
 
         log::debug!("open path={:?} fd={}", filepath, file_fd);
 
-        Ok(MojoFile {
+        Ok(NixFile {
             file_fd,
             curr_off,
             page_header_buf: [0; PAGE_HEADER_LEN],
@@ -63,7 +63,7 @@ impl MojoFile {
 
         let page_off = self.curr_off;
         //let page_off = self.curr_off;
-        self.curr_off += buf.len() as u64 + MojoFile::header_len() as u64;
+        self.curr_off += buf.len() as u64 + NixFile::header_len() as u64;
         self.curr_off += poff;
         //self.curr_off += buf.len() as u64;
 
@@ -92,11 +92,6 @@ impl MojoFile {
         let n = self.read_all_at(off, buf)?;
         Ok(n)
     }
-
-    //pub fn read_header_at(&self, off: u64, header_buf: &mut [u8]) -> Result<(), Error> {
-    //    self.read_all_at(off, &mut header_buf[..self.header_len()])?;
-    //    Ok(())
-    //}
 
     pub fn sync(&self) -> Result<(), Error> {
         nix::unistd::fsync(self.file_fd)?;

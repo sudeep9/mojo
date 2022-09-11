@@ -64,39 +64,4 @@ impl KeyMap {
             }
         }
     }
-
-    /*
-    pub fn serialize<W: std::io::Write>(&self, w: &mut W) -> Result<(), Error> {
-        w.write_all(&(self.pps as u32).to_le_bytes())?;
-
-        let tmp_buf = (self.slot_map.len() as u32).to_le_bytes();
-        w.write_all(&tmp_buf)?;
-
-
-        for slot in self.slot_map.iter() {
-            log::trace!("serialize slot: {:?}", slot);
-            serialize_valuearr(slot, w)?;
-        }
-
-        Ok(())
-    }
-
-    pub fn deserialize<R: std::io::Read>(r: &mut R) -> Result<KeyMap, Error> {
-        log::debug!("deserialize keymap");
-
-        let pps = utils::read_le_u32(r)?;
-        log::debug!("deserializing keymap pps={}", pps);
-
-        let nslots = utils::read_le_u32(r)?;
-        log::debug!("deserializing slots={}", nslots);
-
-        let mut kmap = KeyMap::new(pps as usize);
-        for _ in 0..nslots {
-            let slot = deserialize_valuearr(r, pps as usize)?;
-            kmap.slot_map.push(slot);
-        }
-
-        Ok(kmap)
-    }
- */
 }

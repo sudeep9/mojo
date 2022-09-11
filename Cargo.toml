@@ -4,5 +4,6 @@
 members = [
     "crates/mojofs",
     "crates/mojokv",
+    "crates/mojofile",
     "crates/mojo-cli",
 ]

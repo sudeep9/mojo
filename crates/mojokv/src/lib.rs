@@ -3,7 +3,6 @@
 pub mod index;
 mod bucket;
 mod error;
-mod file;
 mod value;
 mod state;
 mod keymap;

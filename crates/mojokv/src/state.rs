@@ -1,6 +1,6 @@
 
 use crate::Error;
-use crate::file::MojoFile;
+use mojofile::nix::NixFile;
 use crate::utils;
 use std::sync::Arc;
 use parking_lot::RwLock;
@@ -30,7 +30,6 @@ pub struct KVState {
 
 impl KVState {
 
-
     pub fn new(page_sz: u32, pps: u32) -> Self {
 
         let inner = KVStateInner {
@@ -40,8 +39,8 @@ impl KVState {
             active_ver: 1,
             pps,
             page_sz,
-            file_header_len: crate::file::MojoFile::header_len() as u32,
-            file_page_sz: page_sz + MojoFile::header_len() as u32,
+            file_header_len: NixFile::header_len() as u32,
+            file_page_sz: page_sz + NixFile::header_len() as u32,
         };
 
         let state = KVState {
