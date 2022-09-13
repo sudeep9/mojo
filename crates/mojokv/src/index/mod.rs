@@ -1,4 +1,6 @@
 pub mod mem;
+use std::{collections::HashSet, hash::Hash};
+
 use crate::Error;
 use crate::value::Value;
 use serde::{Serialize, Deserialize};
@@ -10,6 +12,8 @@ pub struct IndexHeader {
     pub magic: String, 
     pub format_ver: u32,
     pub min_ver: u32,
+    pub max_ver: u32,
+    pub vset: HashSet<u32>,
     pub active_ver: u32,
     pub max_key: isize,
     pub pps: usize,
@@ -17,10 +21,15 @@ pub struct IndexHeader {
 
 impl IndexHeader {
     pub fn new(pps: usize) -> Self {
+        let mut vset = HashSet::new();
+        vset.insert(1);
+
         IndexHeader {
             magic: MOJO_INDEX_MAGIC.to_owned(),
             format_ver: 1,
             min_ver: 1,
+            max_ver: 1,
+            vset,
             active_ver: 1,
             pps,
             max_key: -1,

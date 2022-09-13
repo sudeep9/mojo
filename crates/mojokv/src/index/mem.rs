@@ -34,6 +34,7 @@ impl MemIndex {
     }
 
     pub fn set_active_ver(&mut self, ver: u32) {
+        self.header.vset.insert(ver);
         self.header.active_ver = ver;
     }
 
@@ -43,6 +44,15 @@ impl MemIndex {
 
     pub fn max_key(&self) -> isize {
         self.header.max_key
+    }
+
+    pub fn update_min_max_ver(&mut self) -> Vec<u32> {
+        let (min_ver, max_ver, vset) = self.kmap.get_min_max_ver();
+        self.header.min_ver = min_ver;
+        self.header.max_ver = max_ver;
+
+        let non_ref_vers: Vec<u32> = self.header.vset.difference(&vset).map(|n| *n).collect();
+        non_ref_vers
     }
 
     pub fn put(&mut self, key: u32, off: u32) -> Result<(), Error> {
@@ -106,15 +116,6 @@ impl MemIndex {
         Ok((cap, b.len(), index))
     }
 
-    /*
-    pub fn deserialize_header_from_path(path: &std::path::Path) -> Result<IndexHeader, Error> {
-        let f = std::fs::OpenOptions::new().read(true).open(path)?;
-
-        let h: IndexHeader = rmp_serde::from_read(f)?;
-        Ok(h)
-    }
-    */
-
 }
 
 pub struct MemIndexIterator<'a> {
@@ -172,5 +173,3 @@ impl<'a> Iterator for MemIndexIterator<'a> {
         ret
     }
 }
-
-//#[derive(Serialize, Deserialize)]

@@ -1,4 +1,5 @@
 
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use crate::Error;
 use mojoio::nix::NixFile;
@@ -24,6 +25,11 @@ impl BucketInner {
     }
 
     fn sync_index(&mut self, ver: u32) -> Result<(), Error> {
+
+        let non_ref_vers =self.index.update_min_max_ver();
+
+        log::debug!("closing versions={:?} as they are no longer referenced", non_ref_vers);
+        self.fmap.close_versions(&non_ref_vers, self.active_ver)?;
 
         let index_path = Bucket::index_path(&self.root_path, self.name.as_str(), ver);
         log::debug!("syncing index ver={} {:?}", ver, index_path);
@@ -110,8 +116,8 @@ impl Bucket {
             return Err(Error::VersionNotFoundErr(ver));
         }
 
-        let fmap = FileMap::init(root_path, name, state.min_ver(), state.active_ver())?;
         let (_, _, mut index) = Self::load_index(root_path, name, ver)?;
+        let fmap = FileMap::init(root_path, name, &index.header().vset, state.active_ver())?;
         index.set_active_ver(state.active_ver());
 
         let file_page_sz = state.page_size() as usize + NixFile::header_len();
@@ -145,25 +151,18 @@ impl Bucket {
         Ok(index)
     }
 
-    /*
-    pub fn load_index_header(root_path: &Path, name: &str, ver: u32) -> Result<(usize, IndexHeader), Error> {
-        let index_path = Self::index_path(root_path, name, ver);
-
-        MemIndex::deserialize_header_from_path(&index_path)
-    }
-    */
-
     pub fn new(root_path: &Path, name: &str, state: KVState) -> Result<Self, Error> {
         log::debug!("creating new bucket name={} at ver={}", name, state.active_ver());
 
         let _ = std::fs::create_dir_all(root_path)?;
 
-        let fmap =  FileMap::init(root_path, name, state.active_ver(), state.active_ver())?;
+        let index = MemIndex::new(state.pps() as usize);
+        let fmap =  FileMap::init(root_path, name, &index.header().vset, state.active_ver())?;
 
         let mut inner = BucketInner {
             name: name.to_owned(),
             root_path: root_path.to_owned(),
-            index: MemIndex::new(state.pps() as usize),
+            index,
             file_page_sz: state.page_size() as usize + NixFile::header_len(),
             fmap,
             is_dirty: false,
@@ -351,27 +350,44 @@ impl Bucket {
 
 
 struct FileMap {
-    fmap: Vec<NixFile>,
-    min_ver: u32,
+    fmap: rustc_hash::FxHashMap<u32,NixFile>,
 }
 
 impl FileMap {
-    fn init(root_path: &Path, name: &str, min_ver: u32, active_ver: u32) -> Result<Self, Error> {
+    fn init(root_path: &Path, name: &str, vset: &HashSet<u32>, aver: u32) -> Result<Self, Error> {
+        //let active_file = Self::open_active_file(root_path, name, active_ver)?;
+        log::debug!("fmap initing for name={} with vset={:?}", name, vset);
+
         let mut fmap = FileMap {
-            fmap: Vec::new(),
-            min_ver,
+            fmap: rustc_hash::FxHashMap::default(),
         };
 
-        for ver in min_ver..=active_ver {
-            fmap.add_file(root_path, name, ver)?;
+        for ver in vset.iter() {
+            if *ver != aver {
+                fmap.add_file(root_path, name, *ver)?;
+            }
         }
+
+        fmap.add_file(root_path, name, aver)?;
 
         Ok(fmap)
     }
 
     fn close(&mut self) -> Result<(), Error> {
-        for f in &mut self.fmap {
+        for (_v, f) in &mut self.fmap {
             f.close()?;
+        }
+        Ok(())
+    }
+
+    fn close_versions(&mut self, vlist: &Vec<u32>, aver: u32) -> Result<(), Error> {
+        for v in vlist {
+            if *v == aver {
+                continue
+            }
+            if let Some(mut f) = self.fmap.remove(v) {
+                f.close()?;
+            }
         }
         Ok(())
     }
@@ -386,17 +402,15 @@ impl FileMap {
 
         let f = NixFile::open(&ver_path, ver)?;
 
-        self.fmap.push(f);
+        self.fmap.insert(ver, f);
         Ok(())
     }
 
     fn file_mut(&mut self, ver: u32) -> &mut NixFile {
-        let i = ver - self.min_ver;
-        &mut self.fmap[i as usize]
+        self.fmap.get_mut(&ver).expect(&format!("write ver={} not found", ver))
     }
 
     fn file(&self, ver: u32) -> &NixFile {
-        let i = ver - self.min_ver;
-        &self.fmap[i as usize]
+        &self.fmap.get(&ver).expect(&format!("read ver={} not found", ver))
     }
 }

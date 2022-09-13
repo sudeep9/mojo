@@ -21,6 +21,7 @@ pub fn cmd(kvpath: &std::path::Path, name: &str, ver: u32, additional: bool, key
 
     println!("Format version    : {}", h.format_ver);
     println!("Minimum version   : {}", h.min_ver);
+    println!("Maximum version   : {}", h.max_ver);
     println!("Active version    : {}", h.active_ver);
     println!("Pages per slot    : {}", h.pps);
     println!("Maximum key       : {}", h.max_key);

@@ -1,4 +1,5 @@
 
+use std::{collections::HashSet, hash::Hash};
 use crate::value::{Value, Slot};
 use serde::{Serialize, Deserialize};
 
@@ -20,6 +21,27 @@ impl KeyMap {
     fn alloc_value_arr(pps: usize) -> Vec<Value> {
         let v = vec![Value::new(); pps];
         v
+    }
+
+    pub fn get_min_max_ver(&self) -> (u32, u32, HashSet<u32>) {
+        let mut set = HashSet::new();
+        let (mut min_ver, mut max_ver) = (u32::MAX,0);
+
+        for slot in self.slot_map.iter() {
+            if let Some(slot) =  slot {
+                for val in slot.iter() {
+                    let v = val.get_ver();
+                    if v == 0 {
+                        break;
+                    }
+                    set.insert(v);
+                    min_ver = min_ver.min(v);
+                    max_ver = max_ver.max(v);
+                }
+            }
+        }
+
+        (min_ver, max_ver, set)
     }
 
     pub fn put(&mut self, key: u32, val: Value) {

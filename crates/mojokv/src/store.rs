@@ -21,6 +21,10 @@ impl KVStore {
     pub fn open(&mut self, name: &str, mode: BucketOpenMode) -> Result<Bucket, Error> {
         log::debug!("store bucket open name={} mode writable={} store is write: {}", name, mode.is_write(), self.is_write);
 
+        if !self.is_write && mode.is_write() {
+            return Err(Error::StoreNotWritableErr);
+        }
+
         let mut b = match self.bmap.get(name) {
             Some(v) => {
                 log::debug!("Bucket name={} exists at ver={}", name, v);
