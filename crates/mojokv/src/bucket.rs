@@ -247,6 +247,7 @@ impl Bucket {
                     let file = self.inner.active_file(self.state.active_ver());
                     let write_off = file.write_buf(key, page_off, buf)?;
                     let block_no = (write_off/(self.inner.file_page_sz as u64)) as u32;
+                    log::debug!("bucket put was done at block_no={} old value={:?}", block_no, val);
                     self.inner.index.put(key, block_no)?;
                 }
                 self.inner.is_dirty = true;

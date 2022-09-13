@@ -3,6 +3,7 @@ use crate::{Error, utils};
 use crate::state::KVState;
 use crate::bucket::Bucket;
 use crate::bmap::BucketMap;
+use crate::index::mem::MemIndex;
 use fslock::LockFile;
 
 pub struct KVStore {
@@ -20,38 +21,25 @@ impl KVStore {
     pub fn open(&mut self, name: &str, mode: BucketOpenMode) -> Result<Bucket, Error> {
         log::debug!("store bucket open name={} mode writable={} store is write: {}", name, mode.is_write(), self.is_write);
 
-        let mut new_bucket = false;
-
-        let (ver, mut b) = match self.bmap.get(name) {
+        let mut b = match self.bmap.get(name) {
             Some(v) => {
                 log::debug!("Bucket name={} exists at ver={}", name, v);
-                let b = Bucket::load(&self.root_path, name, self.state.clone(), v)?;
-                let ver = if self.is_write && mode.is_write() {
-                    self.state.active_ver()
-                }else{
-                    v
-                };
-                (ver, b)
+                Bucket::load(&self.root_path, name, self.state.clone(), v)?
             },
             None => {
                 log::debug!("Bucket name={} does not exists", name);
                 if !self.is_write {
                     return Err(Error::StoreNotWritableErr);
                 }
-                let b = Bucket::new(&self.root_path, name, self.state.clone())?;
-                new_bucket = true;
-                (self.state.active_ver(), b)
-
+                Bucket::new(&self.root_path, name, self.state.clone())?
             }
         };
 
         if self.is_write && mode.is_write() {
             log::debug!("setting bucket={} to writable", name);
             b.set_writable();
-            if new_bucket {
-                self.bmap.add(name, ver);
-                b.sync()?;
-            }
+            self.bmap.add(name, self.state.active_ver());
+            b.sync()?;
         }
 
         if mode.is_write() {
@@ -144,6 +132,19 @@ impl KVStore {
         };
 
         Ok(store)
+    }
+
+    pub fn get_index(&self, name: &str) -> Result<Option<(usize, usize, MemIndex)>, Error> {
+        match self.bmap.get(name) {
+            Some(v) => {
+                let ret = Bucket::load_index(&self.root_path, name, v)?;
+                Ok(Some(ret))
+            },
+            None => {
+                log::debug!("Bucket name={} does not exists", name);
+                return Ok(None)
+            }
+        }
     }
 
     fn new(root_path: &Path, page_sz: u32, pps: u32) -> Result<Self, Error> {

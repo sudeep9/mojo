@@ -50,6 +50,7 @@ impl MemIndex {
         val.put_off(off);
         val.put_ver(self.header.active_ver);
 
+        log::debug!("index put val:{:?}", val);
         self.header.max_key = self.header.max_key.max(key as isize);
         self.kmap.put(key, val);
         Ok(())

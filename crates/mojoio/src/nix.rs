@@ -91,6 +91,7 @@ impl NixFile {
     }
 
     pub fn sync(&self) -> Result<(), Error> {
+        log::debug!("sync fd={}", self.file_fd);
         nix::unistd::fsync(self.file_fd)?;
         Ok(())
     }

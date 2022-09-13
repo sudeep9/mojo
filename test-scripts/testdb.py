@@ -5,17 +5,18 @@ import sys
 import unittest
 import sqlite3
 import shutil
-import subprocess
+import commands as c
 
 MOJOKV_CLI=None
 
 class TestConfig:
     '''Config for test db'''
 
-    def __init__(self, page_sz=4096, journal_mode="WAL", vac_mode="NONE"):
+    def __init__(self, page_sz=4096, journal_mode="WAL", vac_mode="NONE", use_tx=True):
         self.page_sz = page_sz
         self.journal_mode = journal_mode
         self.vac_mode = vac_mode
+        self.use_tx = use_tx
 
     def __repr__(self):
         return f"page_sz={self.page_sz} journal={self.journal_mode}"
@@ -46,85 +47,14 @@ def rm_fr(path):
     else:
         shutil.rmtree(path)
 
-def commit_version(dbpath):
-    '''commit_version commits version for given dbpath'''
-    subprocess.run([MOJOKV_CLI, dbpath, "commit"], check=True, capture_output=True)
-
-def create_table(conn, table):
-    """create table"""
-    conn.execute(f"create table if not exists {table}")
-
-def get_row_count(conn, table, condition=""):
-    """Get the number of rows for a table"""
-    cur = conn.cursor()
-    if condition == "":
-        row = cur.execute(f"select count(*) from {table}").fetchone()
-    else:
-        row = cur.execute(f"select count(*) from {table} where {condition}").fetchone()
-    return int(row[0])
-
-def delete_rows(conn, table, condition=""):
-    """Delete rows"""
-    cur = conn.cursor()
-    if condition == "":
-        cur.execute(f"delete from {table}")
-    else:
-        cur.execute(f"delete from {table} where {condition}")
-
-    conn.commit()
-
-def drop_table(conn, table):
-    """Delete rows"""
-    cur = conn.cursor()
-    cur.execute(f"drop table {table}")
-
-def insert_text_rows(conn, table, count, suffix=""):
-    """Insert rows"""
-    for i in range(count):
-        tmp = "odd"
-        if i%2 == 0:
-            tmp ="even"
-        key = f"{tmp}-text-{i}{suffix}"
-        conn.execute(f"insert into {table} values(?)", (key,))
-    conn.commit()
-
-def iter_rows_count(conn, table, suffix=""):
-    """Iterate table and count"""
-    count = 0
-    cur = conn.cursor()
-    for row in cur.execute(f"select * from {table}"):
-        if row[0].endswith(suffix):
-            count += 1
-    return count
-
 class MojoWritableTest(unittest.TestCase):
     '''MojoWritableTest'''
 
-    def __init__(self, cfg, *args, **kargs):
+    def __init__(self, cfg, dbpath, *args, **kargs):
         self.cfg = cfg
         self.db_conn = None
-        self.db_path = "a.db"
+        self.db_path = dbpath
         super(MojoWritableTest, self).__init__(*args, **kargs)
-
-    def get_count(self, conn, table_name):
-        '''Get the number of rows for a table'''
-        cur = conn.cursor()
-        row = cur.execute(f"select count(*) from {table_name}").fetchone()
-        return int(row[0])
-
-    def _open_db(self, db_path, ver="1", mode=""):
-        if mode == "":
-            conn_str = f"file:{db_path}?vfs=mojo&ver={ver}&pagesz={self.cfg.page_sz}&pps=65536"
-        else:
-            conn_str = f"file:{db_path}?vfs=mojo&mode=ro&ver={ver}&pagesz={self.cfg.page_sz}&pps=65536"
-
-        conn = sqlite3.Connection(conn_str, uri=True)
-
-        if mode != "ro":
-            conn.execute(f"PRAGMA page_size={self.cfg.page_sz}")
-            conn.execute(f"PRAGMA journal_mode={self.cfg.journal_mode}")
-            conn.execute(f"PRAGMA auto_vacuum={self.cfg.vac_mode}")
-        return conn
 
     def setUp(self):
         rm_fr(self.db_path)
@@ -134,76 +64,105 @@ class MojoWritableTest(unittest.TestCase):
             self.db_conn.close()
 
     def _subtest_name(self, name):
-        return f"{name}: {self.cfg}"
+        return f"{name}: {self.cfg} {self.db_path}"
+
+    def begin(self, cur):
+        """begin"""
+        if self.cfg.use_tx:
+            cur.execute("begin")
+    
+    def commit(self, cur):
+        """commit"""
+        if self.cfg.use_tx:
+            cur.execute("commit")
+
+    def rollback(self, cur):
+        """rollback"""
+        if self.cfg.use_tx:
+            cur.execute("rollback")
 
     def test_db_use(self):
         '''Tests the general usage of the database '''
 
-        row_count = 100
-        table = "test"
-        table_desc = "test (s text primary key)"
-        self.db_conn = self._open_db(self.db_path)
+        db_conn = c.opendb(self.cfg, self.db_path)
+        ins_row_count = 100
 
-        with self.subTest(self._subtest_name("create table and insert")):
-            create_table(self.db_conn, table_desc)
-            insert_text_rows(self.db_conn, table, row_count, "-1")
-            self.assertEqual(row_count, get_row_count(self.db_conn, table))
+        with self.subTest(self._subtest_name("create table")):
+            c.create_table_person(db_conn)
 
-        with self.subTest(self._subtest_name("select")):
-            count = iter_rows_count(self.db_conn, table, "-1")
-            self.assertEqual(count, row_count, 'select row count')
-            self.assertEqual(row_count, get_row_count(self.db_conn, table, "s like '%-1'"))
+        with self.subTest(self._subtest_name("insert rows v1")):
+            c.insert_table_person(db_conn, ins_row_count)
+            db_conn.commit()
 
-        with self.subTest(self._subtest_name("delete")):
-            delete_rows(self.db_conn, table, "s like 'even%'")
-            self.assertEqual(row_count//2, get_row_count(self.db_conn, table))
+            count = c.table_person_count(db_conn)
+            self.assertEqual(ins_row_count, count)
 
-        with self.subTest(self._subtest_name("drop and create")):
-            drop_table(self.db_conn, table)
-            create_table(self.db_conn, table_desc)
-            insert_text_rows(self.db_conn, table, row_count, "-1")
-            self.assertEqual(row_count, get_row_count(self.db_conn, table))
+        db_conn.close()
 
+        ### Commit ver=1
+        c.commit_version(self.db_path)
+        db_conn = c.opendb(self.cfg, self.db_path)
+
+        ### active ver=2
+        with self.subTest(self._subtest_name("insert rows v2")):
+            self.assertEqual(ins_row_count, c.table_person_count(db_conn))
+            c.insert_table_person(db_conn, ins_row_count)
+            db_conn.commit()
+            self.assertEqual(ins_row_count*2, c.table_person_count(db_conn))
+            #db_conn.close()
+
+        ### Commit ver=2
+        db_conn.close()
+        c.commit_version(self.db_path)
+        db_conn = c.opendb(self.cfg, self.db_path)
+
+        ### active ver=3
+        with self.subTest(self._subtest_name("copy table")):
+            self.assertEqual(ins_row_count*2, c.table_person_count(db_conn))
+
+            c.copy_table_person(db_conn, "person_2")
+            db_conn.commit()
+
+            self.assertEqual(ins_row_count*2, c.get_row_count(db_conn, "person_2"))
+
+        with self.subTest(self._subtest_name("read v1")):
+            db_v1 =  c.opendb(self.cfg, self.db_path, mode="ro", ver="1")
+            self.assertEqual(ins_row_count, c.table_person_count(db_v1))
+            db_v1.close()
+
+        db_conn.close()
+
+        ### Commit ver=3
+        c.commit_version(self.db_path)
+        db_conn = c.opendb(self.cfg, self.db_path)
+
+        ### active ver=4
+        with self.subTest(self._subtest_name("delete rows in v3")):
+            c.delete_table_person(db_conn, 0, 10000)
+            db_conn.commit()
+            self.assertEqual(0, c.table_person_count(db_conn))
+            db_conn.close()
+
+        ### Commit ver=4
+        c.commit_version(self.db_path)
+        db_conn = c.opendb(self.cfg, self.db_path)
+        ### active ver=5
         with self.subTest(self._subtest_name("vacuum")):
-            self.db_conn.execute("vacuum")
+            c.vacuum(db_conn)
+            db_conn.commit()
+            self.assertEqual(0, c.table_person_count(db_conn))
 
-        with self.subTest(self._subtest_name("commit version v=1")):
-            commit_version(self.db_path)
-            self.db_conn.close()
-            self.db_conn = None
+            db_v3 =  c.opendb(self.cfg, self.db_path, mode="ro", ver="4")
+            self.assertEqual(0, c.table_person_count(db_v3))
+            db_v3.close()
 
-        with self.subTest(self._subtest_name("open ver=2")):
-            self.db_conn = self._open_db(self.db_path)
+            db_v2 =  c.opendb(self.cfg, self.db_path, mode="ro", ver="2")
+            self.assertEqual(ins_row_count*2, c.table_person_count(db_v2))
+            db_v2.close()
 
-        with self.subTest(self._subtest_name("delete ver=2")):
-            delete_rows(self.db_conn, table)
-            count = iter_rows_count(self.db_conn, table, "-1")
-            self.assertEqual(0, count, 'select row count')
-            self.assertEqual(0, get_row_count(self.db_conn, table))
-
-        with self.subTest(self._subtest_name("db ro ver=1")):
-            conn_v1 = self._open_db(self.db_path, ver="1", mode="ro")
-            count = iter_rows_count(conn_v1, table, "-1")
-            self.assertEqual(count, row_count, 'select row count')
-            self.assertEqual(row_count, get_row_count(conn_v1, table))
-
-        with self.subTest(self._subtest_name("commit version v=2")):
-            commit_version(self.db_path)
-            self.db_conn.close()
-            self.db_conn = None
-        
-        with self.subTest(self._subtest_name("open ver=3")):
-            self.db_conn = self._open_db(self.db_path)
-            conn_v2 = self._open_db(self.db_path, ver="2", mode="ro")
-
-            count = iter_rows_count(conn_v2, table, "-1")
-            self.assertEqual(0, count, 'select row count')
-            self.assertEqual(0, get_row_count(conn_v2, table))
-
-            count = iter_rows_count(conn_v1, table)
-            self.assertEqual(count, row_count, 'select row count')
-            self.assertEqual(row_count, get_row_count(conn_v1, table))
-
+        db_conn.close()
+        ### Commit ver=5
+        c.commit_version(self.db_path)
 
 def load_extension(mojo_lib):
     """load_extension"""
@@ -226,19 +185,27 @@ def create_suite(full_mode):
         page_sizes = [4096]
         journal_modes = ["WAL"]
         vacuum_modes = ["INCREMENTAL"]
+        use_tx = [False]
     else:
         page_sizes = [4096]
         journal_modes = ["OFF", "WAL", "MEMORY", "DELETE", "TRUNCATE", "PERSIST"]
         vacuum_modes = ["NONE", "FULL", "INCREMENTAL"]
+        use_tx = [False]
 
+
+    dbid = 0
     for page_sz in page_sizes:
         for journal_mode in journal_modes:
             for vac_mode in vacuum_modes:
-                cfg = TestConfig(page_sz=page_sz,
-                    journal_mode=journal_mode,
-                    vac_mode=vac_mode)
-                    
-                suite.addTest(MojoWritableTest(cfg, 'test_db_use'))
+                for tx in use_tx:
+                    cfg = TestConfig(page_sz=page_sz,
+                        journal_mode=journal_mode,
+                        vac_mode=vac_mode,
+                        use_tx=tx)
+
+                    dbid += 1
+                    dbpath = f"./testdbs/a_{dbid}.db"
+                    suite.addTest(MojoWritableTest(cfg, dbpath, 'test_db_use'))
 
     return suite
 
@@ -256,10 +223,15 @@ if __name__ == '__main__':
     if not MOJOKV_CLI:
         MOJOKV_CLI="./build/mojo-cli"
 
+    c.MOJOKV_CLI = MOJOKV_CLI
+
     ext_path = sys.argv[1]
     load_extension(ext_path)
 
-    runner = unittest.TextTestRunner()
+    rm_fr("./testdbs/*")
+    c.mkdir("./testdbs")
+
+    runner = unittest.TextTestRunner(failfast=True)
     runner.run(create_suite(FULL))
 
 

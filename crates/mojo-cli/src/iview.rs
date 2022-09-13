@@ -1,8 +1,15 @@
 use anyhow::Error;
-use mojokv::{KVStore, Bucket};
+use mojokv::{KVStore};
 
 pub fn cmd(kvpath: &std::path::Path, name: &str, ver: u32, additional: bool, keys: bool) -> Result<(), Error> {
-    let (uncomp_sz, comp_sz, i) = Bucket::load_index(&kvpath, name, ver)?;
+    let st = KVStore::readonly(kvpath, ver)?;
+    let ret = st.get_index(name)?; //Bucket::load_index(&kvpath, name, ver)?;
+
+    if ret.is_none() {
+        println!("Bucket {} does not exists", name);
+    }
+
+    let (uncomp_sz, comp_sz, i) = ret.unwrap();
 
     let h = i.header();
 
