@@ -5,7 +5,7 @@ use crate::open_options::*;
 use std::collections::HashMap;
 use crate::kvfile::{KVFile, KVFileOpt};
 use crate::vfsfile::FileImpl;
-use mojokv::{KVStore, BucketOpenMode};
+use mojokv::{Store, BucketOpenMode};
 
 use crate::vfsfile::VFSFile;
 
@@ -17,7 +17,7 @@ pub enum AccessCheck {
 
 #[derive(Default)]
 pub struct VFS {
-    store: Option<KVStore>,
+    store: Option<Store>,
     file_counter: usize,
     fopt: FSOptions,
 }
@@ -41,10 +41,10 @@ impl VFS {
         self.fopt = FSOptions::parse(params)?;
         let root_path = Path::new(root_path);
         if opt.access == OpenAccess::Read {
-            self.store = Some(KVStore::readonly(root_path, self.fopt.ver)?);
+            self.store = Some(Store::readonly(root_path, self.fopt.ver)?);
             log::debug!("store opened in readonly mode");
         }else{
-            self.store = Some(KVStore::writable(root_path, true, Some(self.fopt.pagesz), Some(self.fopt.pps))?);
+            self.store = Some(Store::writable(root_path, true, Some(self.fopt.pagesz), Some(self.fopt.pps))?);
             log::debug!("store opened writable mode");
         }
 

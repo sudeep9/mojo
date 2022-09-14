@@ -1,5 +1,5 @@
 
-use std::{collections::HashSet, hash::Hash};
+use std::collections::HashSet;
 use crate::value::{Value, Slot};
 use serde::{Serialize, Deserialize};
 

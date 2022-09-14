@@ -1,5 +1,5 @@
 pub mod mem;
-use std::{collections::HashSet, hash::Hash};
+use std::collections::HashSet;
 
 use crate::Error;
 use crate::value::Value;

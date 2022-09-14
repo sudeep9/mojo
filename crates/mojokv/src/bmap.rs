@@ -13,7 +13,7 @@ pub struct BucketMap {
 }
 
 impl BucketMap {
-    pub fn add(&mut self, name: &str, ver: u32) {
+    pub fn add(&self, name: &str, ver: u32) {
         log::debug!("add name={} ver={} {:?}", name, ver, self.map);
         let mut map = self.map.write();
         //self.buckets.insert(name.to_owned(), b);
@@ -31,7 +31,7 @@ impl BucketMap {
         map.get(name).map(|v| *v)
     }
 
-    pub fn delete(&mut self, root_path: &Path, name: &str, ver: u32) -> Result<(), Error> {
+    pub fn delete(&self, root_path: &Path, name: &str, ver: u32) -> Result<(), Error> {
         log::debug!("delete name={} {:?}", name, self.map);
         let mut map = self.map.write();
 

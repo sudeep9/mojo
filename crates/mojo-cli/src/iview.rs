@@ -1,8 +1,8 @@
 use anyhow::Error;
-use mojokv::{KVStore};
+use mojokv::{Store};
 
 pub fn cmd(kvpath: &std::path::Path, name: &str, ver: u32, additional: bool, keys: bool) -> Result<(), Error> {
-    let st = KVStore::readonly(kvpath, ver)?;
+    let st = Store::readonly(kvpath, ver)?;
     let ret = st.get_index(name)?; //Bucket::load_index(&kvpath, name, ver)?;
 
     if ret.is_none() {
@@ -14,7 +14,7 @@ pub fn cmd(kvpath: &std::path::Path, name: &str, ver: u32, additional: bool, key
     let h = i.header();
 
     let st = if additional {
-        Some(KVStore::load_state(kvpath)?)
+        Some(Store::load_state(kvpath)?)
     }else{
         None
     };

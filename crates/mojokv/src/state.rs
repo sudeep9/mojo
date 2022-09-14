@@ -7,7 +7,7 @@ use parking_lot::RwLock;
 use serde::{Serialize, Deserialize};
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct KVStateInner {
+pub struct StateInner {
     pub format_ver: u32,
     pub min_ver: u32,
     pub max_ver: u32,
@@ -21,18 +21,18 @@ pub struct KVStateInner {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct KVState {
-    inner: Arc<RwLock<KVStateInner>>,
+pub struct State {
+    inner: Arc<RwLock<StateInner>>,
 
     #[serde(skip)]
     pub commit_lock: Arc<RwLock<bool>>,
 }
 
-impl KVState {
+impl State {
 
     pub fn new(page_sz: u32, pps: u32) -> Self {
 
-        let inner = KVStateInner {
+        let inner = StateInner {
             format_ver: 1,
             min_ver: 1,
             max_ver: 1,
@@ -43,7 +43,7 @@ impl KVState {
             file_page_sz: page_sz + NixFile::header_len() as u32,
         };
 
-        let state = KVState {
+        let state = State {
             inner: Arc::new(RwLock::new(inner)),
             commit_lock: Arc::new(RwLock::new(false)),
         };
@@ -102,7 +102,7 @@ impl KVState {
         Ok(())    
     }
 
-    pub fn deserialize_from_path(filepath: &std::path::Path) -> Result<KVState, Error> {
+    pub fn deserialize_from_path(filepath: &std::path::Path) -> Result<State, Error> {
         let mut buf = Vec::new();
         utils::load_file(filepath, &mut buf)?;
 

@@ -1,90 +1,104 @@
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use crate::{Error, utils};
-use crate::state::KVState;
+use crate::state::State;
 use crate::bucket::Bucket;
 use crate::bmap::BucketMap;
 use crate::index::mem::MemIndex;
+use parking_lot::RwLock;
 use fslock::LockFile;
 
-pub struct KVStore {
+struct StoreInner {
     root_path: PathBuf,
-    state: KVState,
+    state: State,
     is_write: bool,
     bmap: BucketMap,
 }
+pub struct Store {
+    inner: Arc<RwLock<StoreInner>>,
+}
 
-impl KVStore {
+impl Store {
     pub fn exists(&self, name: &str) -> bool {
-        self.bmap.exists(name)
+        let inner = self.inner.read();
+        inner.bmap.exists(name)
     }
 
-    pub fn open(&mut self, name: &str, mode: BucketOpenMode) -> Result<Bucket, Error> {
-        log::debug!("store bucket open name={} mode writable={} store is write: {}", name, mode.is_write(), self.is_write);
+    pub fn open(&self, name: &str, mode: BucketOpenMode) -> Result<Bucket, Error> {
+        let mut inner = self.inner.write();
 
-        if !self.is_write && mode.is_write() {
+        log::debug!("store bucket open name={} mode writable={} store is write: {}", name, mode.is_write(), inner.is_write);
+
+        if !inner.is_write && mode.is_write() {
             return Err(Error::StoreNotWritableErr);
         }
 
-        let mut b = match self.bmap.get(name) {
+        let mut b = match inner.bmap.get(name) {
             Some(v) => {
                 log::debug!("Bucket name={} exists at ver={}", name, v);
-                Bucket::load(&self.root_path, name, self.state.clone(), self.bmap.clone(), v)?
+                Bucket::load(&inner.root_path, name, inner.state.clone(), inner.bmap.clone(), v)?
             },
             None => {
                 log::debug!("Bucket name={} does not exists", name);
-                if !self.is_write {
+                if !inner.is_write {
                     return Err(Error::StoreNotWritableErr);
                 }
-                Bucket::new(&self.root_path, name, self.state.clone(), self.bmap.clone())?
+                Bucket::new(&inner.root_path, name, inner.state.clone(), inner.bmap.clone())?
             }
         };
 
-        if self.is_write && mode.is_write() {
+        if inner.is_write && mode.is_write() {
             log::debug!("setting bucket={} to writable", name);
             b.set_writable();
             b.sync()?;
         }
 
         if mode.is_write() {
-            self.sync_bmap()?;
+            inner.sync_bmap()?;
         }
 
         Ok(b)
     }
 
-    pub fn delete(&mut self, name: &str) -> Result<(), Error> {
-        self.bmap.delete(&self.root_path, name, self.state.active_ver())?;
-        self.sync_bmap()
+    pub fn delete(&self, name: &str) -> Result<(), Error> {
+        let mut inner = self.inner.write();
+        let aver = inner.state.active_ver();
+
+        inner.bmap.delete(&inner.root_path, name, aver)?;
+        inner.sync_bmap()
     }
 
-    pub fn commit(&mut self) -> Result<u32, Error> {
-        log::debug!("committing store ver={}", self.state.active_ver());
+    pub fn commit(&self) -> Result<u32, Error> {
+        let mut inner = self.inner.write();
 
-        let _ = self.state.commit_lock.write();
+        log::debug!("committing store ver={}", inner.state.active_ver());
 
-        log::debug!("about to acquire commit file lock ver={}", self.state.active_ver());
-        let mut commit_lock_file = Self::create_lock_file(&self.root_path)?;
+        let _ = inner.state.commit_lock.write();
+
+        log::debug!("about to acquire commit file lock ver={}", inner.state.active_ver());
+        let mut commit_lock_file = Self::create_lock_file(&inner.root_path)?;
 
         if !commit_lock_file.try_lock_with_pid()? {
             return Err(Error::CommitLockedErr);
         }
 
-        let new_ver = self.state.advance_ver();
-        self.sync_state()?;
-        self.sync_bmap()?;
+        let new_ver = inner.state.advance_ver();
+        inner.sync_state()?;
+        inner.sync_bmap()?;
 
         log::debug!("committing store done");
         Ok(new_ver)
     }
 
     pub fn active_ver(&self) -> u32 {
-        self.state.active_ver()
+        let inner = self.inner.read();
+        inner.state.active_ver()
     }
 
-    pub fn load_state(rootpath: &Path) -> Result<KVState, Error> {
+    pub fn load_state(rootpath: &Path) -> Result<State, Error> {
         let state_path = rootpath.join("mojo.state");
         log::debug!("loading state from {:?}", state_path);
-        let state = KVState::deserialize_from_path(&state_path)?;
+        let state = State::deserialize_from_path(&state_path)?;
         Ok(state)
     }
 
@@ -94,7 +108,7 @@ impl KVStore {
         Self::load_store(root_path, state, ver)
     }
 
-    pub fn writable(rootpath: &Path, create: bool, page_sz: Option<u32>, pps: Option<u32>) -> Result<KVStore, Error> {
+    pub fn writable(rootpath: &Path, create: bool, page_sz: Option<u32>, pps: Option<u32>) -> Result<Store, Error> {
         let init_path = rootpath.join("mojo.init");
 
         if create && (page_sz.is_none() || pps.is_none()) {
@@ -102,13 +116,13 @@ impl KVStore {
             return Err(Error::MissingArgsErr);
         }
 
-        let mut store = if !init_path.exists() {
+        let store = if !init_path.exists() {
             if !create {
                 return Err(Error::StoreNotFoundErr);
             }
 
             log::debug!("Store does not exists. Initing now");
-            let mut store = KVStore::new(rootpath, page_sz.unwrap(), pps.unwrap())?;
+            let mut store = Store::new(rootpath, page_sz.unwrap(), pps.unwrap())?;
             store.init()?;
             log::debug!("Store init successfull");
             store
@@ -118,29 +132,36 @@ impl KVStore {
             Self::load_store(rootpath, state, aver)?
         };
 
-        store.is_write = true;
+        {
+            let mut inner = store.inner.write();
+            inner.is_write = true;
+        }
                
         Ok(store)
     }
 
-    fn load_store(root_path: &Path, state: KVState, ver: u32) -> Result<KVStore, Error> {
+    fn load_store(root_path: &Path, state: State, ver: u32) -> Result<Store, Error> {
         log::debug!("loading store at ver={}", ver);
         let bmap = BucketMap::load(root_path, ver)?;
 
-        let store = KVStore {
+        let inner = StoreInner {
             root_path: root_path.to_owned(),
             state,
             is_write: false,
             bmap,
         };
 
+        let store = Store {inner: Arc::new(RwLock::new(inner))};
+
         Ok(store)
     }
 
     pub fn get_index(&self, name: &str) -> Result<Option<(usize, usize, MemIndex)>, Error> {
-        match self.bmap.get(name) {
+        let inner = self.inner.read();
+
+        match inner.bmap.get(name) {
             Some(v) => {
-                let ret = Bucket::load_index(&self.root_path, name, v)?;
+                let ret = Bucket::load_index(&inner.root_path, name, v)?;
                 Ok(Some(ret))
             },
             None => {
@@ -151,26 +172,41 @@ impl KVStore {
     }
 
     fn new(root_path: &Path, page_sz: u32, pps: u32) -> Result<Self, Error> {
-        let state = KVState::new(page_sz, pps);
+        let state = State::new(page_sz, pps);
 
-        let store = KVStore {
+        let inner = StoreInner {
             root_path: root_path.to_owned(),
             state,
             is_write: false,
             bmap: BucketMap::default(),
         };
 
+        let store = Store {
+            inner: Arc::new(RwLock::new(inner)),
+        };
+
         Ok(store)
     }
 
     fn init(&mut self) -> Result<(), Error> {
-        std::fs::create_dir_all(&self.root_path)?;
-        self.sync()?;
-        let touch_file = self.root_path.join("mojo.init");
+        let mut inner = self.inner.write();
+
+        std::fs::create_dir_all(&inner.root_path)?;
+        inner.sync()?;
+        let touch_file = inner.root_path.join("mojo.init");
         utils::touch_file(&touch_file)?;
         Ok(())
     }
 
+
+    fn create_lock_file(root_path: &Path) -> Result<LockFile, Error> {
+        let lock_path = root_path.join("mojo.lock");
+        log::debug!("creating lock file: {:?}", lock_path);
+        Ok(LockFile::open(&lock_path)?)
+    }
+}
+
+impl StoreInner {
     fn sync(&mut self) -> Result<(), Error> {
         self.sync_state()?;
         self.sync_bmap()?;
@@ -197,12 +233,6 @@ impl KVStore {
 
         log::debug!("syncing state done");
         Ok(())
-    }
-
-    fn create_lock_file(root_path: &Path) -> Result<LockFile, Error> {
-        let lock_path = root_path.join("mojo.lock");
-        log::debug!("creating lock file: {:?}", lock_path);
-        Ok(LockFile::open(&lock_path)?)
     }
 }
 

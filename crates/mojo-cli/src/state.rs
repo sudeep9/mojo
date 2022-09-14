@@ -1,9 +1,9 @@
 use anyhow::Error;
-use mojokv::{self, KVStore};
+use mojokv::{self, Store};
 use std::mem::size_of;
 
 pub fn cmd(kvpath: &std::path::Path, additional: bool) -> Result<(), Error> {
-    let st = KVStore::load_state(kvpath)?;
+    let st = Store::load_state(kvpath)?;
 
     println!("Format version  : {}", st.format_ver());
     println!("Minimum version : {}", st.min_ver());
@@ -14,7 +14,7 @@ pub fn cmd(kvpath: &std::path::Path, additional: bool) -> Result<(), Error> {
 
     if additional {
         println!("----------------------------");
-        println!("Size of KVStore : {} bytes", size_of::<KVStore>());
+        println!("Size of KVStore : {} bytes", size_of::<Store>());
         println!("Size of MemIndex   : {} bytes", size_of::<mojokv::index::mem::MemIndex>());
         println!("Size of KeyMap  : {} bytes", size_of::<mojokv::KeyMap>());
         println!("Size of Value   : {} bytes", size_of::<mojokv::Value>());

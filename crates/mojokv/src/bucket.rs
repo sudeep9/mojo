@@ -5,7 +5,7 @@ use crate::{Error, BucketMap};
 use mojoio::nix::NixFile;
 use crate::index::mem::MemIndex;
 use crate::value::Value;
-use crate::state::KVState;
+use crate::state::State;
 
 pub struct BucketInner {
     name: String,
@@ -39,7 +39,7 @@ impl BucketInner {
 }
 
 pub struct Bucket {
-    state: KVState,
+    state: State,
     //inner: Arc<RwLock<BucketInner>>,
     inner: BucketInner,
     bmap: BucketMap,
@@ -47,7 +47,7 @@ pub struct Bucket {
 }
 
 impl Bucket {
-    fn with_inner(state: KVState, inner: BucketInner, bmap: BucketMap) -> Self {
+    fn with_inner(state: State, inner: BucketInner, bmap: BucketMap) -> Self {
         Bucket {
             state,
             //inner: Arc::new(RwLock::new(inner)),
@@ -61,7 +61,7 @@ impl Bucket {
         self.is_write = true
     }
 
-    pub fn readonly(root_path: &Path, name: &str, ver: u32, state: KVState, bmap: BucketMap) -> Result<Bucket, Error> {
+    pub fn readonly(root_path: &Path, name: &str, ver: u32, state: State, bmap: BucketMap) -> Result<Bucket, Error> {
         log::debug!("bucket name={} readonly at ver={}", name, ver);
 
         let b = Self::load(root_path, name,  state, bmap, ver)?;
@@ -87,7 +87,7 @@ impl Bucket {
         self.inner.is_modified
     }
 
-    pub fn writable(root_path: &Path, name: &str, state: KVState, bmap: BucketMap, load_ver: u32) -> Result<Bucket, Error> {
+    pub fn writable(root_path: &Path, name: &str, state: State, bmap: BucketMap, load_ver: u32) -> Result<Bucket, Error> {
         log::debug!("mojo initing bucket pps={}", state.pps());
 
         let aver = state.active_ver();
@@ -110,7 +110,7 @@ impl Bucket {
         Ok(b)
     }
 
-    pub fn load(root_path: &Path, name: &str, state: KVState, bmap: BucketMap, ver: u32) -> Result<Self, Error> {
+    pub fn load(root_path: &Path, name: &str, state: State, bmap: BucketMap, ver: u32) -> Result<Self, Error> {
         log::debug!("loading bucket={} version={}", name, ver);
 
         if ver < state.min_ver() || ver > state.active_ver() {
@@ -152,7 +152,7 @@ impl Bucket {
         Ok(index)
     }
 
-    pub fn new(root_path: &Path, name: &str, state: KVState, bmap: BucketMap) -> Result<Self, Error> {
+    pub fn new(root_path: &Path, name: &str, state: State, bmap: BucketMap) -> Result<Self, Error> {
         log::debug!("creating new bucket name={} at ver={}", name, state.active_ver());
 
         let _ = std::fs::create_dir_all(root_path)?;
