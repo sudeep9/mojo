@@ -28,21 +28,20 @@ impl KVStore {
         let mut b = match self.bmap.get(name) {
             Some(v) => {
                 log::debug!("Bucket name={} exists at ver={}", name, v);
-                Bucket::load(&self.root_path, name, self.state.clone(), v)?
+                Bucket::load(&self.root_path, name, self.state.clone(), self.bmap.clone(), v)?
             },
             None => {
                 log::debug!("Bucket name={} does not exists", name);
                 if !self.is_write {
                     return Err(Error::StoreNotWritableErr);
                 }
-                Bucket::new(&self.root_path, name, self.state.clone())?
+                Bucket::new(&self.root_path, name, self.state.clone(), self.bmap.clone())?
             }
         };
 
         if self.is_write && mode.is_write() {
             log::debug!("setting bucket={} to writable", name);
             b.set_writable();
-            self.bmap.add(name, self.state.active_ver());
             b.sync()?;
         }
 

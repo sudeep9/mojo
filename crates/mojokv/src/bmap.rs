@@ -1,46 +1,51 @@
 
 use std::path::{Path, PathBuf};
-use std::collections::{hash_map, HashMap};
+use std::collections::HashMap;
+use std::sync::Arc;
 use crate::bucket::Bucket;
 use crate::Error;
+use parking_lot::RwLock;
 use serde::{Serialize, Deserialize};
 
-#[derive(Default, Debug, Serialize, Deserialize)]
+#[derive(Clone, Default, Debug, Serialize, Deserialize)]
 pub struct BucketMap {
-    map: HashMap<String, u32>,
-
-    //#[serde(skip)]
-    //buckets: HashMap<String, Bucket>,
+    map: Arc<RwLock<HashMap<String, u32>>>,
 }
 
 impl BucketMap {
     pub fn add(&mut self, name: &str, ver: u32) {
         log::debug!("add name={} ver={} {:?}", name, ver, self.map);
+        let mut map = self.map.write();
         //self.buckets.insert(name.to_owned(), b);
-        self.map.insert(name.to_owned(), ver);
+        map.insert(name.to_owned(), ver);
     }
 
     pub fn exists(&self, name: &str) -> bool {
-        self.map.contains_key(name)
+        let map = self.map.read();
+        map.contains_key(name)
     } 
 
     pub fn get(&self, name: &str) -> Option<u32>{
         log::debug!("get name={}", name);
-        self.map.get(name).map(|v| *v)
-    }
-
-    pub fn iter<'a>(&'a self) -> hash_map::Iter<'a, String, u32> {
-        self.map.iter()
+        let map = self.map.read();
+        map.get(name).map(|v| *v)
     }
 
     pub fn delete(&mut self, root_path: &Path, name: &str, ver: u32) -> Result<(), Error> {
         log::debug!("delete name={} {:?}", name, self.map);
+        let mut map = self.map.write();
 
-        self.map.remove(name);
+        map.remove(name);
 
         Bucket::delete_ver(root_path, name, ver)?;
 
         Ok(())
+    }
+
+    pub fn map(&self) -> Result<HashMap<String, u32>, Error> {
+        let map = self.map.read();
+
+        Ok(map.clone())
     }
 
     pub fn serialize_to_path(&self, path: &Path) -> Result<(), Error> {

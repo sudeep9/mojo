@@ -1,7 +1,7 @@
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
-use crate::Error;
+use crate::{Error, BucketMap};
 use mojoio::nix::NixFile;
 use crate::index::mem::MemIndex;
 use crate::value::Value;
@@ -25,7 +25,6 @@ impl BucketInner {
     }
 
     fn sync_index(&mut self, ver: u32) -> Result<(), Error> {
-
         let non_ref_vers =self.index.update_min_max_ver();
 
         log::debug!("closing versions={:?} as they are no longer referenced", non_ref_vers);
@@ -43,15 +42,17 @@ pub struct Bucket {
     state: KVState,
     //inner: Arc<RwLock<BucketInner>>,
     inner: BucketInner,
+    bmap: BucketMap,
     is_write: bool,
 }
 
 impl Bucket {
-    fn with_inner(state: KVState, inner: BucketInner) -> Self {
+    fn with_inner(state: KVState, inner: BucketInner, bmap: BucketMap) -> Self {
         Bucket {
             state,
             //inner: Arc::new(RwLock::new(inner)),
             inner,
+            bmap,
             is_write: false,
         }
     }
@@ -60,10 +61,10 @@ impl Bucket {
         self.is_write = true
     }
 
-    pub fn readonly(root_path: &Path, name: &str, ver: u32, state: KVState) -> Result<Bucket, Error> {
+    pub fn readonly(root_path: &Path, name: &str, ver: u32, state: KVState, bmap: BucketMap) -> Result<Bucket, Error> {
         log::debug!("bucket name={} readonly at ver={}", name, ver);
 
-        let b = Self::load(root_path, name,  state, ver)?;
+        let b = Self::load(root_path, name,  state, bmap, ver)?;
         Ok(b)
     }
 
@@ -86,7 +87,7 @@ impl Bucket {
         self.inner.is_modified
     }
 
-    pub fn writable(root_path: &Path, name: &str, state: KVState, load_ver: u32) -> Result<Bucket, Error> {
+    pub fn writable(root_path: &Path, name: &str, state: KVState, bmap: BucketMap, load_ver: u32) -> Result<Bucket, Error> {
         log::debug!("mojo initing bucket pps={}", state.pps());
 
         let aver = state.active_ver();
@@ -94,10 +95,10 @@ impl Bucket {
 
         let mut b = if index_path.exists() {
             log::debug!("bucket index for version={} exists", load_ver);
-            Self::load(root_path, name, state, aver)?
+            Self::load(root_path, name, state, bmap, aver)?
         }else{
             log::debug!("creating new bucket at ver={}", aver);
-            let mut b = Self::new(root_path, name, state)?;
+            let mut b = Self::new(root_path, name, state, bmap)?;
             b.sync()?;
             b
         };
@@ -109,7 +110,7 @@ impl Bucket {
         Ok(b)
     }
 
-    pub fn load(root_path: &Path, name: &str, state: KVState, ver: u32) -> Result<Self, Error> {
+    pub fn load(root_path: &Path, name: &str, state: KVState, bmap: BucketMap, ver: u32) -> Result<Self, Error> {
         log::debug!("loading bucket={} version={}", name, ver);
 
         if ver < state.min_ver() || ver > state.active_ver() {
@@ -135,7 +136,7 @@ impl Bucket {
         };
 
         log::debug!("mojo load version done");
-        Ok(Bucket::with_inner(state, inner))
+        Ok(Bucket::with_inner(state, inner, bmap))
     }
 
     pub fn load_index(root_path: &Path, name: &str, ver: u32) -> Result<(usize, usize, MemIndex), Error> {
@@ -151,7 +152,7 @@ impl Bucket {
         Ok(index)
     }
 
-    pub fn new(root_path: &Path, name: &str, state: KVState) -> Result<Self, Error> {
+    pub fn new(root_path: &Path, name: &str, state: KVState, bmap: BucketMap) -> Result<Self, Error> {
         log::debug!("creating new bucket name={} at ver={}", name, state.active_ver());
 
         let _ = std::fs::create_dir_all(root_path)?;
@@ -172,7 +173,7 @@ impl Bucket {
         };
 
         inner.index.set_active_ver(state.active_ver());
-        let b = Bucket::with_inner(state, inner);
+        let b = Bucket::with_inner(state, inner, bmap);
         Ok(b)
     }
 
@@ -318,6 +319,7 @@ impl Bucket {
 
         log::debug!("syncing bucket={} at ver={}", self.inner.name, self.state.active_ver());
 
+        self.bmap.add(&self.inner.name, self.state.active_ver());
         self.inner.active_file(self.state.active_ver()).sync()?;
         self.inner.sync_index(self.state.active_ver())?;
         self.inner.is_dirty = false;
