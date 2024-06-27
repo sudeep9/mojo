@@ -51,7 +51,7 @@ static int mojo_fullpath_name(
   return SQLITE_OK;
 }
 
-int sqlite3_extension_init(sqlite3 *db, char **pzErrMsg, const sqlite3_api_routines *pApi){
+int sqlite3_mojo_init(sqlite3 *db, char **pzErrMsg, const sqlite3_api_routines *pApi){
   int rc = SQLITE_OK;
   SQLITE_EXTENSION_INIT2(pApi);
 

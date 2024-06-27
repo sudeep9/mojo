@@ -12,3 +12,4 @@ build
 Cargo.lock
 testdbs
 __pycache__
+.DS_Store

@@ -11,9 +11,11 @@ mojofs_lib = compiler.find_library('mojofs',
     dirs: [mojokv_lib_path])
 
 mojofs_dep = declare_dependency(dependencies: [mojofs_lib])
+sqlite_dep = dependency('sqlite3')
 
 shared_library('mojo',
+    name_prefix: '',
     sources: ['sqlite-ext/mojo.c'],
     include_directories: ['sqlite-ext'],
-    dependencies: [mojofs_dep])
+    dependencies: [mojofs_dep, sqlite_dep])
 

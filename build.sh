@@ -61,7 +61,7 @@ if [ "$MOJO_TEST" != "" ]; then
 
     export MOJOKV_CLI=./target/$BUILD_PROFILE/mojo-cli
 
-    python3 test-scripts/testdb.py $MESON_BUILD_DIR/libmojo
+    python3 test-scripts/testdb.py $MESON_BUILD_DIR/mojo
     if [ $? -ne 0 ]; then
         echo "Error: mojo test failed with $?"
         exit 1
